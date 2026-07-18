@@ -24,6 +24,7 @@
   <thead>
     <tr>
       <th scope="col">#</th>
+      <th scope="col">Cover</th>
       <th scope="col">Song Name</th>
       <th scope="col">Album</th>
       <th scope="col">Singer</th>
@@ -37,18 +38,30 @@
     {% for song in songs %}
     <tr>
       <th scope="row">{{forloop.counter}}</th>
+      <td>
+        {% if song.song_img %}
+        <img src="{{ song.song_img.url }}" height="60" width="60" style="border-radius: 8px 8px 8px 8px;">
+        {% else %}
+        Cover unavailable
+        {% endif %}
+      </td>
       <td><a href="{% url 'detail' song.id %}">{{song.name}}</a></td>
       <td>{{song.album}}</td>
       <td>{{song.singer}}</td>
       <td>
+        {% if song.song_file %}
         <audio controls>
           <source src="{{ song.song_file.url }}" type="audio/mpeg">
         </audio>
+        {% else %}
+        Audio unavailable.
+        {% endif %}
       </td>
       <td>
         <form method="post">
           {% csrf_token %}
-          <input class="btn btn-primary" type="submit" value="Remove" name={{song.id}}>
+          <input type="hidden" name="song_id" value="{{song.id}}">
+          <input class="btn btn-primary" type="submit" value="Remove">
         </form>
       </td>
     </tr>

@@ -49,6 +49,7 @@
 
                     <form method="post">
                         {% csrf_token %}
+                        <input type="hidden" name="playlist_action" value="create">
                         <button style="float: left;" type="button" class="btn btn-primary" data-toggle="modal"
                             data-target="#exampleModal" data-whatever="@mdo"><i class="fa fa-plus" aria-hidden="true"></i> Create New Playlist</button>
                         <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog"
@@ -66,7 +67,7 @@
                                             <div class="form-group">
                                                 <label for="recipient-name" class="col-form-label">Name</label>
                                                 <input type="text" class="form-control" id="recipient-name"
-                                                    name="playlist">
+                                                    name="playlist_name">
                                             </div>
                                         </form>
                                     </div>
@@ -82,8 +83,9 @@
 
                     <form method="post">
                         {% csrf_token %}
+                        <input type="hidden" name="playlist_action" value="add">
                         <select style="margin-left: 10px;width: 170px;" class="btn btn-success"
-                            onChange="form.submit();" name="playlist">
+                            onChange="form.submit();" name="playlist_name">
                             <option selected="selected" disabled style="color: black;">Add to Playlist</option>
                             {% if playlists %}
                             {% for playlist in playlists %}
@@ -98,16 +100,16 @@
                         {% if is_favourite %}
                         <span class="d-flex align-items-center mt-2 ml-2">
                             <!-- <i class="heart fa fa-heart my-auto"></i> -->
-                            <button type="submit" name="rm-fav" class="btn btn-danger btn-block"
+                            <input type="hidden" name="favorite_action" value="remove">
+                            <button type="submit" class="btn btn-danger btn-block"
                                 style="width: 358px;margin-left:-8px;background-color: red;">Remove from Favourites</button>
                         </span>
                         {% else %}
                         <span class="d-flex align-items-center mt-2 ml-2">
                             <!-- <i class="heart fa fa-heart my-auto"></i> -->
-                            <button type="submit" name="add-fav" class="btn btn-danger btn-block"
+                            <input type="hidden" name="favorite_action" value="add">
+                            <button type="submit" class="btn btn-danger btn-block"
                                 style="width: 358px;margin-left:-8px;background-color: red;"><i class="heart fa fa-heart-o my-auto" style="color:white"></i> Add to Favourites</button>
-
-                            <!-- <input type="submit" id="favbtn" class="btn btn-primary" name="add-fav" value="Add to Favourites"> -->
                         </span>
 
                         {% endif %}
@@ -123,21 +125,36 @@
 
 <footer class="footer">
     <div class="player" style="padding-left: 10px;padding-top:10px;background-color: #459dfb;">
+        {% if last_played %}
+        {% if last_played.song_img %}
         <div class="left"><img src="{{last_played.song_img.url}}" height="90" width="90"
                 style="border-radius: 10px 10px 10px 10px;"></div>
+        {% else %}
+        <div class="left" style="height: 90px;width: 90px;color: white;">Cover unavailable</div>
+        {% endif %}
         <div class="right">
             <div class="top">
                 <a class="song" style="margin-left: 15px;color: white;">{{last_played.name}}</a>
                 <a class="artist" style="margin-left: 15px;color:white">{{last_played.album}}</a>
             </div>
             <div class="bottom">
+                {% if last_played.song_file %}
                 <audio controls="" _autoplay="" name="media"
                     style="margin-left: 20px;margin-bottom: 10px;width: 1245px;height:30px">
                     <source src="{{last_played.song_file.url}}" type="audio/mpeg"></audio>
+                {% else %}
+                <a class="song" style="margin-left: 15px;color: white;">Audio unavailable.</a>
+                {% endif %}
             </div>
         </div>
+        {% else %}
+        <div class="right">
+            <div class="top">
+                <a class="song" style="margin-left: 15px;color: white;">No song is ready to play yet.</a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </footer>
 
 {% endblock body %}
-
