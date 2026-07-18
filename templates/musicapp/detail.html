@@ -49,6 +49,7 @@
 
                     <form method="post">
                         {% csrf_token %}
+                        <input type="hidden" name="playlist_action" value="create">
                         <button style="float: left;" type="button" class="btn btn-primary" data-toggle="modal"
                             data-target="#exampleModal" data-whatever="@mdo"><i class="fa fa-plus" aria-hidden="true"></i> Create New Playlist</button>
                         <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog"
@@ -66,7 +67,7 @@
                                             <div class="form-group">
                                                 <label for="recipient-name" class="col-form-label">Name</label>
                                                 <input type="text" class="form-control" id="recipient-name"
-                                                    name="playlist">
+                                                    name="playlist_name">
                                             </div>
                                         </form>
                                     </div>
@@ -82,8 +83,9 @@
 
                     <form method="post">
                         {% csrf_token %}
+                        <input type="hidden" name="playlist_action" value="add">
                         <select style="margin-left: 10px;width: 170px;" class="btn btn-success"
-                            onChange="form.submit();" name="playlist">
+                            onChange="form.submit();" name="playlist_name">
                             <option selected="selected" disabled style="color: black;">Add to Playlist</option>
                             {% if playlists %}
                             {% for playlist in playlists %}
