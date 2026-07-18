@@ -2,211 +2,180 @@
 {% load socialaccount %}
 {% block title %} Home {% endblock title %}
 
-{% block body %} 
+{% block body %}
 
-<br>
-<div class="container">
-  <div class="col-md-13">
-    <form id="searchform" class="form-horizontal" role="search" method="get" action=''>
-          <div class="form-group">
-              <div class="input-group">
-                  <input type="text" class="form-control input-lg " name="q" style="border-radius: 5px;"
-                  value="{{ request.GET.q }}" placeholder= "Search Songs "/>
-                                
-                  <span class='input-group-btn mx-2'>
-                    <button type="submit" style="border-radius: 5px;" class="btn btn-primary">Search</button>
-                  </span>
-              </div>
-          </div>
-      </form>
-  </div>
-
-{% if query_search %}
-  <header class="section-heading">
-    <h5 class="section-title">SEARCH RESULTS</h5>
-  </header>
-<hr>
-{% endif %}
-<!-- Recent Song -->
-{% if recent_songs %}
-{% if not query_search %}
-  <header class="section-heading">
-    <h5 class="section-title">RECENTLY PLAYED</h5>
-  </header>
-<hr>
-{% endif %}
-<!-- Recent Song list -->
-<div class="row" style="margin-right: 65px;margin-left:-15px">
-  {% for song in recent_songs %}
-      <div class="col-md-2">
-          <div class="hovereffect">
-            {% if song.song_img %}
-            <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135" style="border-radius: 8px 8px 8px 8px;">
-            {% else %}
-            <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-            {% endif %}
-            <div class="overlay">
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'play_song_index' song.id %}"><i class="fa fa-play" aria-hidden="true"></i></a>
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
-             </div>
-          </div>
-      </div>
-      {% endfor %}
-      <a href="{% url 'recent' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
-
-</div>
-
-<br>
-<br>
-{% endif %}
-
-
-
-<!-- All Songs -->
-{% if not query_search %}
-
-  <header class="section-heading">
-    <!-- <a href="{% url 'all_songs' %}" class="btn btn-primary float-right">View all</a> -->
-    <h5 class="section-title">ALL SONGS</h5>
-  </header>
-<hr>
-{% endif %}
-<!-- Song list -->
-<div class="row" style="margin-right: 65px;margin-left:-15px">
-  {% if all_songs %}
-  {% for song in all_songs %}
-      <div class="col-md-2">
-          <div class="hovereffect">
-            {% if song.song_img %}
-            <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135" style="border-radius: 8px 8px 8px 8px;">
-            {% else %}
-            <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-            {% endif %}
-            <div class="overlay">
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'play_song_index' song.id %}"><i class="fa fa-play" aria-hidden="true"></i></a>
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
-             </div>
-          </div>
-      </div>
-      {% endfor %}
-      {% else %}
-      <p class="mx-3">No songs available yet.</p>
-      {% endif %}
-      {% if not query_search %}
-      <a href="{% url 'all_songs' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
-      {% endif %}
+<div class="app-page">
+  <section class="page-hero" aria-labelledby="home-title">
+    <div>
+      <p class="section-kicker">Music library</p>
+      <h1 id="home-title">GALVANIC</h1>
+      <p>Browse recent plays, discover the full catalog, and jump into Hindi and English collections.</p>
     </div>
-<br>
-<br>
 
-
-<!-- Hindi Songs -->
-{% if not query_search %}
-  <header class="section-heading">
-    <h5 class="section-title">HINDI SONGS</h5>
-  </header>
-<hr>
-{% endif %}
-<!-- Song list -->
-<div class="row" style="margin-right: 65px;margin-left:-15px">
-  {% if hindi_songs %}
-  {% for song in hindi_songs %}
-      <div class="col-md-2">
-          <div class="hovereffect">
-            {% if song.song_img %}
-            <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135" style="border-radius: 8px 8px 8px 8px;">
-            {% else %}
-            <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-            {% endif %}
-            <div class="overlay">
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'play_song_index' song.id %}"><i class="fa fa-play" aria-hidden="true"></i></a>
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
-             </div>
-          </div>
-      </div>
-      {% endfor %}
-      {% else %}
-      <p class="mx-3">No Hindi songs available yet.</p>
-      {% endif %}
-      {% if not query_search %}
-      <a href="{% url 'hindi_songs' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
-      {% endif %}
-</div>
-<br>
-<br>
-
-<!-- English Songs -->
-{% if not query_search %}
-  <header class="section-heading">
-    <h5 class="section-title">ENGLISH SONGS</h5>
-  </header>
-<hr>
-{% endif %}
-<!-- Song list -->
-<div class="row" style="margin-right: 65px;margin-left:-15px">
-  {% if english_songs %}
-  {% for song in english_songs %}
-      <div class="col-md-2">
-          <div class="hovereffect">
-            {% if song.song_img %}
-            <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135" style="border-radius: 8px 8px 8px 8px;">
-            {% else %}
-            <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-            {% endif %}
-            <div class="overlay">
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'play_song_index' song.id %}"><i class="fa fa-play" aria-hidden="true"></i></a>
-                <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
-             </div>
-          </div>
-      </div>
-      {% endfor %}
-      {% else %}
-      <p class="mx-3">No English songs available yet.</p>
-      {% endif %}
-      {% if not query_search %}
-      <a href="{% url 'english_songs' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
-      {% endif %}
-    </div>
-</div>
-<br>
-<br>
-<br>
-<br>
-<br>
-
-<footer class="footer">
-    <div class="player" style="padding-left: 10px;padding-top:10px;background-color: #459dfb;">
-      {% if last_played %}
-      {% if last_played.song_img %}
-      <div class="left"><img src="{{last_played.song_img.url}}" height="90" width="90" style="border-radius: 10px 10px 10px 10px;"></div>
-      {% else %}
-      <div class="left" style="height: 90px;width: 90px;color: white;">Cover unavailable</div>
-      {% endif %}
-      <div class="right">
-         <div class="top">
-            <a class="song" style="margin-left: 15px;color: white;">{{last_played.name}}</a>
-            <a class="artist" style="margin-left: 15px;color:white">{{last_played.album}}</a>
-         </div>
-         <div class="bottom">
-          {% if last_played.song_file %}
-          {% if first_time %}
-            <audio controls=""  name="media" style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px"><source src="{{last_played.song_file.url}}" type="audio/mpeg" ></audio>
-              {% else %}
-              <audio controls="" autoplay name="media" style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px"><source src="{{last_played.song_file.url}}" type="audio/mpeg" ></audio>
-                {% endif %}
-          {% else %}
-          <a class="song" style="margin-left: 15px;color: white;">Audio unavailable.</a>
-          {% endif %}
-          </div>
-      </div>
-      {% else %}
-      <div class="right">
-        <div class="top">
-          <a class="song" style="margin-left: 15px;color: white;">No song is ready to play yet.</a>
+    <form id="searchform" class="search-panel" role="search" method="get" action="">
+      <div class="form-group">
+        <label class="sr-only" for="home-song-search">Search Songs</label>
+        <div class="input-group">
+          <input id="home-song-search" type="text" class="form-control input-lg" name="q" value="{{ request.GET.q }}" placeholder="Search Songs">
+          <span class="input-group-btn ml-2">
+            <button type="submit" class="btn btn-primary">Search</button>
+          </span>
         </div>
       </div>
-      {% endif %}
+    </form>
+  </section>
+
+  {% if query_search %}
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">Catalog</p>
+      <h2 class="section-title">Search Results</h2>
+      <p class="section-subtitle">Matches from the available music library.</p>
     </div>
-</footer>
+  </header>
+  {% endif %}
+
+  {% if recent_songs %}
+  {% if not query_search %}
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">Recent</p>
+      <h2 class="section-title">Recently Played</h2>
+      <p class="section-subtitle">Pick up from songs you opened most recently.</p>
+    </div>
+    <a href="{% url 'recent' %}" class="btn btn-ghost">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+  </header>
+  {% endif %}
+
+  <div class="song-grid">
+    {% for song in recent_songs %}
+    <article class="song-card">
+      <div class="song-card-cover">
+        {% if song.song_img %}
+        <img src="{{ song.song_img.url }}" alt="{{ song.name }} cover">
+        {% else %}
+        <div class="song-card-cover-fallback">Cover unavailable</div>
+        {% endif %}
+        <div class="song-card-actions" aria-label="{{ song.name }} actions">
+          <a class="btn btn-primary icon-button" href="{% url 'play_song_index' song.id %}" aria-label="Play {{ song.name }}"><i class="fa fa-play" aria-hidden="true"></i></a>
+          <a class="btn btn-ghost icon-button" href="{% url 'detail' song.id %}" aria-label="View details for {{ song.name }}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
+        </div>
+      </div>
+      <h3 class="song-card-title">{{ song.name }}</h3>
+      <p class="song-card-meta">{{ song.singer }}</p>
+      <p class="song-card-detail">{{ song.album }}{% if song.language %} / {{ song.language }}{% endif %}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not query_search %}
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">Library</p>
+      <h2 class="section-title">All Songs</h2>
+      <p class="section-subtitle">A quick scan of the catalog.</p>
+    </div>
+    <a href="{% url 'all_songs' %}" class="btn btn-ghost">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+  </header>
+  {% endif %}
+
+  {% if all_songs %}
+  <div class="song-grid">
+    {% for song in all_songs %}
+    <article class="song-card">
+      <div class="song-card-cover">
+        {% if song.song_img %}
+        <img src="{{ song.song_img.url }}" alt="{{ song.name }} cover">
+        {% else %}
+        <div class="song-card-cover-fallback">Cover unavailable</div>
+        {% endif %}
+        <div class="song-card-actions" aria-label="{{ song.name }} actions">
+          <a class="btn btn-primary icon-button" href="{% url 'play_song_index' song.id %}" aria-label="Play {{ song.name }}"><i class="fa fa-play" aria-hidden="true"></i></a>
+          <a class="btn btn-ghost icon-button" href="{% url 'detail' song.id %}" aria-label="View details for {{ song.name }}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
+        </div>
+      </div>
+      <h3 class="song-card-title">{{ song.name }}</h3>
+      <p class="song-card-meta">{{ song.singer }}</p>
+      <p class="song-card-detail">{{ song.album }}{% if song.language %} / {{ song.language }}{% endif %}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">No songs available yet.</div>
+  {% endif %}
+
+  {% if not query_search %}
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">Hindi</p>
+      <h2 class="section-title">Hindi Songs</h2>
+      <p class="section-subtitle">Explore Hindi tracks from the catalog.</p>
+    </div>
+    <a href="{% url 'hindi_songs' %}" class="btn btn-ghost">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+  </header>
+
+  {% if hindi_songs %}
+  <div class="song-grid">
+    {% for song in hindi_songs %}
+    <article class="song-card">
+      <div class="song-card-cover">
+        {% if song.song_img %}
+        <img src="{{ song.song_img.url }}" alt="{{ song.name }} cover">
+        {% else %}
+        <div class="song-card-cover-fallback">Cover unavailable</div>
+        {% endif %}
+        <div class="song-card-actions" aria-label="{{ song.name }} actions">
+          <a class="btn btn-primary icon-button" href="{% url 'play_song_index' song.id %}" aria-label="Play {{ song.name }}"><i class="fa fa-play" aria-hidden="true"></i></a>
+          <a class="btn btn-ghost icon-button" href="{% url 'detail' song.id %}" aria-label="View details for {{ song.name }}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
+        </div>
+      </div>
+      <h3 class="song-card-title">{{ song.name }}</h3>
+      <p class="song-card-meta">{{ song.singer }}</p>
+      <p class="song-card-detail">{{ song.album }}{% if song.language %} / {{ song.language }}{% endif %}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">No Hindi songs available yet.</div>
+  {% endif %}
+
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">English</p>
+      <h2 class="section-title">English Songs</h2>
+      <p class="section-subtitle">Explore English tracks from the catalog.</p>
+    </div>
+    <a href="{% url 'english_songs' %}" class="btn btn-ghost">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+  </header>
+
+  {% if english_songs %}
+  <div class="song-grid">
+    {% for song in english_songs %}
+    <article class="song-card">
+      <div class="song-card-cover">
+        {% if song.song_img %}
+        <img src="{{ song.song_img.url }}" alt="{{ song.name }} cover">
+        {% else %}
+        <div class="song-card-cover-fallback">Cover unavailable</div>
+        {% endif %}
+        <div class="song-card-actions" aria-label="{{ song.name }} actions">
+          <a class="btn btn-primary icon-button" href="{% url 'play_song_index' song.id %}" aria-label="Play {{ song.name }}"><i class="fa fa-play" aria-hidden="true"></i></a>
+          <a class="btn btn-ghost icon-button" href="{% url 'detail' song.id %}" aria-label="View details for {{ song.name }}"><i class="fa fa-info-circle" aria-hidden="true"></i></a>
+        </div>
+      </div>
+      <h3 class="song-card-title">{{ song.name }}</h3>
+      <p class="song-card-meta">{{ song.singer }}</p>
+      <p class="song-card-detail">{{ song.album }}{% if song.language %} / {{ song.language }}{% endif %}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">No English songs available yet.</div>
+  {% endif %}
+  {% endif %}
+</div>
+
+{% include 'musicapp/partials/player.html' %}
 
 {% endblock body %}

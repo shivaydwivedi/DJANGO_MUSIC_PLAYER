@@ -1,41 +1,81 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
 {% load socialaccount %}
 {% block title %} MusicApp | {{ title }} {% endblock title %}
-{% block header %}
-<style>
-    .or-seperator {
-    margin: 20px 0 10px;
-    text-align: center;
-    border-top: 1px solid #ccc;
-}
-.or-seperator i {
-    padding: 0 10px;
-    background: #f7f7f7;
-    position: relative;
-    top: -11px;
-    z-index: 1;
-}
 
-</style>
-{% endblock header %}
 {% block body %}
-<main role="main" class="container col-12 col-sm-8 col-md-6 col-lg-4 offset-sm-2 offset-md-3 offset-lg-4">
-    <br>
-    <h1 class="text-center">Sign Up</h1>
-    <br> 
-    <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-outline-dark btn-block">
-      <img width="20px" style="margin-bottom:3px; margin-right:5px" alt="Google sign-in" src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png" />
-      Sign up with Google
-    </a>
-    <div class="or-seperator"><i>or</i></div>
-    <form method="post">
-      {% csrf_token %}
-      {{form|crispy}}
-      <button class="btn btn-success btn-block" type="submit">Sign Up</button>
-    </form>
-    <br>
-    <p>Already have an account? Please <a href="{% url 'login' %}">log in</a>.</p>
-  </main>
-  
+
+<div class="auth-shell">
+  <section class="auth-layout" aria-labelledby="signup-title">
+    <div class="auth-intro">
+      <p class="section-kicker">Join the library</p>
+      <h1 id="signup-title">Create your GALVANIC account</h1>
+      <p>Save favourites, build playlists, and keep your listening history close.</p>
+    </div>
+
+    <div class="auth-card">
+      <h2>Sign Up</h2>
+      <p class="auth-card-subtitle">Create an account with a username, email, and password.</p>
+
+      <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-ghost auth-social">
+        <i class="fa fa-google" aria-hidden="true"></i>
+        <span>Sign up with Google</span>
+      </a>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      <form method="post" class="auth-form" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="form-errors" role="alert">
+          {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="form-field">
+          <label for="{{ form.username.id_for_label }}">Username</label>
+          <input type="text" class="form-control" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default_if_none:'' }}" placeholder="Username" autocomplete="username"{% if form.username.errors %} aria-describedby="signup-username-errors"{% endif %}>
+          {% if form.username.errors %}
+          <div class="field-errors" id="signup-username-errors" role="alert">{{ form.username.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.email.id_for_label }}">Email</label>
+          <input type="email" class="form-control" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default_if_none:'' }}" placeholder="Email" autocomplete="email"{% if form.email.errors %} aria-describedby="signup-email-errors"{% endif %}>
+          {% if form.email.errors %}
+          <div class="field-errors" id="signup-email-errors" role="alert">{{ form.email.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.password1.id_for_label }}">Password</label>
+          <input type="password" class="form-control" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}" placeholder="Enter Password" autocomplete="new-password"{% if form.password1.errors or form.password1.help_text %} aria-describedby="{% if form.password1.help_text %}signup-password1-help{% endif %}{% if form.password1.errors %} signup-password1-errors{% endif %}"{% endif %}>
+          {% if form.password1.help_text %}
+          <p class="form-help" id="signup-password1-help">{{ form.password1.help_text }}</p>
+          {% endif %}
+          {% if form.password1.errors %}
+          <div class="field-errors" id="signup-password1-errors" role="alert">{{ form.password1.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.password2.id_for_label }}">Password confirmation</label>
+          <input type="password" class="form-control" name="{{ form.password2.html_name }}" id="{{ form.password2.id_for_label }}" placeholder="Re Enter Password" autocomplete="new-password"{% if form.password2.errors or form.password2.help_text %} aria-describedby="{% if form.password2.help_text %}signup-password2-help{% endif %}{% if form.password2.errors %} signup-password2-errors{% endif %}"{% endif %}>
+          {% if form.password2.help_text %}
+          <p class="form-help" id="signup-password2-help">{{ form.password2.help_text }}</p>
+          {% endif %}
+          {% if form.password2.errors %}
+          <div class="field-errors" id="signup-password2-errors" role="alert">{{ form.password2.errors }}</div>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-primary auth-submit" type="submit">Sign Up</button>
+      </form>
+
+      <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Log in</a>.</p>
+    </div>
+  </section>
+</div>
+
 {% endblock body %}
