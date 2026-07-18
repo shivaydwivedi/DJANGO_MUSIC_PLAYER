@@ -52,7 +52,8 @@
       <td>
         <form method="post">
           {% csrf_token %}
-          <input class="btn btn-primary" type="submit" value="Remove" name={{song.id}}>
+          <input type="hidden" name="song_id" value="{{song.id}}">
+          <input class="btn btn-primary" type="submit" value="Remove">
         </form>
       </td>
     </tr>
