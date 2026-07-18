@@ -38,6 +38,28 @@ class EmptyLibraryPageTests(TestCase):
             song_file=SimpleUploadedFile('song.mp3', b'audio-bytes', content_type='audio/mpeg'),
         )
 
+    def _create_song_with_media_state(self, name, language='English', with_image=False, with_audio=False):
+        kwargs = {
+            'name': name,
+            'album': 'Recovery Album',
+            'language': language,
+            'year': 2026,
+            'singer': 'Test Singer',
+        }
+        if with_image:
+            kwargs['song_img'] = SimpleUploadedFile(
+                name.replace(' ', '-').lower() + '.jpg',
+                b'cover-bytes',
+                content_type='image/jpeg',
+            )
+        if with_audio:
+            kwargs['song_file'] = SimpleUploadedFile(
+                name.replace(' ', '-').lower() + '.mp3',
+                b'audio-bytes',
+                content_type='audio/mpeg',
+            )
+        return Song.objects.create(**kwargs)
+
     def test_anonymous_public_pages_render_with_empty_library(self):
         routes = [
             (reverse('index'), 'No songs available yet.'),
@@ -537,3 +559,127 @@ class EmptyLibraryPageTests(TestCase):
         self.assertContains(response, 'Cover unavailable')
         self.assertContains(response, 'Audio unavailable.')
         self.assertEqual(self._counts(), before)
+
+    def test_blank_media_song_renders_safely_on_public_song_pages(self):
+        self._create_song_with_media_state('Blank Hindi Public Song', language='Hindi')
+        self._create_song_with_media_state('Blank English Public Song', language='English')
+
+        for url in [
+            reverse('index'),
+            reverse('all_songs'),
+            reverse('hindi_songs'),
+            reverse('english_songs'),
+        ]:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'Cover unavailable')
+                self.assertEqual(self._counts(), before)
+
+    def test_blank_media_song_renders_safely_on_recent_page(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Blank Recent Media Song')
+        Recent.objects.create(user=user, song=song)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('recent'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cover unavailable')
+        self.assertContains(response, 'Audio unavailable.')
+        self.assertEqual(self._counts(), before)
+
+    def test_blank_media_song_renders_safely_on_detail_page(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Blank Detail Media Song')
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cover unavailable')
+        self.assertContains(response, 'Audio unavailable.')
+        self.assertEqual(self._counts(), before)
+
+    def test_blank_media_song_renders_safely_on_favourite_page(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Blank Favourite Media Song')
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('favourite'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Audio unavailable.')
+        self.assertEqual(self._counts(), before)
+
+    def test_blank_media_song_renders_safely_on_playlist_songs_page(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Blank Playlist Media Song')
+        Playlist.objects.create(user=user, song=song, playlist_name='Media Mix')
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('playlist_songs', args=['Media Mix']))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cover unavailable')
+        self.assertContains(response, 'Audio unavailable.')
+        self.assertEqual(self._counts(), before)
+
+    def test_image_only_song_renders_cover_and_audio_fallback(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Image Only Song', with_image=True)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'image-only-song.jpg')
+        self.assertContains(response, 'Audio unavailable.')
+
+    def test_audio_only_song_renders_cover_fallback_and_audio_player(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Audio Only Song', with_audio=True)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cover unavailable')
+        self.assertContains(response, 'audio-only-song.mp3')
+
+    def test_song_with_both_media_preserves_existing_rendering(self):
+        song = self._create_song_with_media_state('Complete Media Song', with_image=True, with_audio=True)
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+
+        detail_response = self.client.get(reverse('detail', args=[song.id]))
+        favourite_response = self.client.get(reverse('favourite'))
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, 'complete-media-song.jpg')
+        self.assertContains(detail_response, 'complete-media-song.mp3')
+        self.assertNotContains(detail_response, 'Cover unavailable')
+        self.assertNotContains(detail_response, 'Audio unavailable.')
+        self.assertEqual(favourite_response.status_code, 200)
+        self.assertContains(favourite_response, 'complete-media-song.mp3')
+
+    def test_media_protected_pages_still_enforce_authentication(self):
+        song = self._create_song_with_media_state('Protected Media Song')
+
+        for url in [
+            reverse('detail', args=[song.id]),
+            reverse('favourite'),
+            reverse('playlist'),
+            reverse('playlist_songs', args=['Media Mix']),
+        ]:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(reverse('login'), response['Location'])

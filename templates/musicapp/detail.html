@@ -31,8 +31,12 @@
                 <div class="preview col-md-5">
 
                     <div class="preview-pic tab-content">
+                        {% if songs.song_img %}
                         <div class="tab-pane active"><img src="{{songs.song_img.url}}" height="300" width="300"
                                 style="padding:20px;border-radius: 60px 60px 60px 60px;"></div>
+                        {% else %}
+                        <div class="tab-pane active" style="padding:20px;">Cover unavailable</div>
+                        {% endif %}
                     </div>
 
                 </div>
@@ -43,9 +47,13 @@
                     <h6>Singer: {{songs.singer}}</h6>
                     <h6>Release Year: {{songs.year}}</h6>
                     <br>
-                    <!-- <audio controls>
+                    {% if songs.song_file %}
+                    <audio controls>
                         <source src="{{ songs.song_file.url }}" type="audio/mpeg">
-                    </audio>   -->
+                    </audio>
+                    {% else %}
+                    <p>Audio unavailable.</p>
+                    {% endif %}
 
                     <form method="post">
                         {% csrf_token %}
