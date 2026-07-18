@@ -81,6 +81,8 @@
           </div>
       </div>
       {% endfor %}
+      {% else %}
+      <p class="mx-3">No songs available yet.</p>
       {% endif %}
       {% if not query_search %}
       <a href="{% url 'all_songs' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
@@ -111,6 +113,8 @@
           </div>
       </div>
       {% endfor %}
+      {% else %}
+      <p class="mx-3">No Hindi songs available yet.</p>
       {% endif %}
       {% if not query_search %}
       <a href="{% url 'hindi_songs' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
@@ -140,6 +144,8 @@
           </div>
       </div>
       {% endfor %}
+      {% else %}
+      <p class="mx-3">No English songs available yet.</p>
       {% endif %}
       {% if not query_search %}
       <a href="{% url 'english_songs' %}" class="btn btn-primary float-right" style="height: 135px;"><center style="margin-top: 45px;">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></center></a>
@@ -154,20 +160,36 @@
 
 <footer class="footer">
     <div class="player" style="padding-left: 10px;padding-top:10px;background-color: #459dfb;">
+      {% if last_played %}
+      {% if last_played.song_img %}
       <div class="left"><img src="{{last_played.song_img.url}}" height="90" width="90" style="border-radius: 10px 10px 10px 10px;"></div>
+      {% else %}
+      <div class="left" style="height: 90px;width: 90px;color: white;">Cover unavailable</div>
+      {% endif %}
       <div class="right">
          <div class="top">
             <a class="song" style="margin-left: 15px;color: white;">{{last_played.name}}</a>
             <a class="artist" style="margin-left: 15px;color:white">{{last_played.album}}</a>
          </div>
          <div class="bottom">
+          {% if last_played.song_file %}
           {% if first_time %}
             <audio controls=""  name="media" style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px"><source src="{{last_played.song_file.url}}" type="audio/mpeg" ></audio>
               {% else %}
               <audio controls="" autoplay name="media" style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px"><source src="{{last_played.song_file.url}}" type="audio/mpeg" ></audio>
                 {% endif %}
+          {% else %}
+          <a class="song" style="margin-left: 15px;color: white;">Audio unavailable.</a>
+          {% endif %}
           </div>
       </div>
+      {% else %}
+      <div class="right">
+        <div class="top">
+          <a class="song" style="margin-left: 15px;color: white;">No song is ready to play yet.</a>
+        </div>
+      </div>
+      {% endif %}
     </div>
 </footer>
 
