@@ -9,14 +9,14 @@
     <div class="right">
       <div class="top">
         <span class="song">{{ last_played.name }}</span>
-        <span class="artist">{{ last_played.album }}</span>
+        <span class="artist">{{ last_played.singer }}</span>
       </div>
       <div class="bottom">
         {% if last_played.song_file %}
         {% if first_time %}
-        <audio controls name="media"><source src="{{ last_played.song_file.url }}" type="audio/mpeg"></audio>
+        <audio controls name="media" aria-label="Now playing {{ last_played.name }} by {{ last_played.singer }}"><source src="{{ last_played.song_file.url }}" type="audio/mpeg"></audio>
         {% else %}
-        <audio controls autoplay name="media"><source src="{{ last_played.song_file.url }}" type="audio/mpeg"></audio>
+        <audio controls autoplay name="media" aria-label="Now playing {{ last_played.name }} by {{ last_played.singer }}"><source src="{{ last_played.song_file.url }}" type="audio/mpeg"></audio>
         {% endif %}
         {% else %}
         <span class="song">Audio unavailable.</span>

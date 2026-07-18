@@ -28,12 +28,12 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse app-navbar-collapse" id="app-primary-nav">
-                <a href="{% url 'index' %}" class="btn btn-outline-light mt-2 mx-1">HOME</a>
-                <a href="{% url 'all_songs' %}" class="btn btn-outline-light mt-2 mx-1">ALL SONGS</a>
+                <a href="{% url 'index' %}" class="btn btn-outline-light mt-2 mx-1 {% if request.resolver_match.url_name == 'index' %}is-active{% endif %}"{% if request.resolver_match.url_name == 'index' %} aria-current="page"{% endif %}>HOME</a>
+                <a href="{% url 'all_songs' %}" class="btn btn-outline-light mt-2 mx-1 {% if request.resolver_match.url_name == 'all_songs' or request.resolver_match.url_name == 'hindi_songs' or request.resolver_match.url_name == 'english_songs' or request.resolver_match.url_name == 'recent' or request.resolver_match.url_name == 'detail' %}is-active{% endif %}"{% if request.resolver_match.url_name == 'all_songs' %} aria-current="page"{% endif %}>ALL SONGS</a>
                 {% if request.user.is_active %}
                 
                 <div class="btn-group mt-2 mx-1">
-                    <a type="button" href="{% url 'mymusic' %}" class="btn btn-outline-light">MY MUSIC</a>
+                    <a type="button" href="{% url 'mymusic' %}" class="btn btn-outline-light {% if request.resolver_match.url_name == 'mymusic' or request.resolver_match.url_name == 'playlist' or request.resolver_match.url_name == 'playlist_songs' or request.resolver_match.url_name == 'favourite' %}is-active{% endif %}"{% if request.resolver_match.url_name == 'mymusic' %} aria-current="page"{% endif %}>MY MUSIC</a>
                     <button type="button" class="btn btn-light dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     <span class="sr-only">Toggle Dropdown</span>
                     </button>
@@ -54,8 +54,8 @@
                 <button type="submit" class="btn btn-light"> Sign Out <i class="fa fa-sign-out" aria-hidden="true"></i></button>
             </form>
             {% else %}
-            <a href="{% url 'login' %}" class="btn btn-light mt-2 mx-2"><i class="fa fa-sign-in" aria-hidden="true"></i> Sign In</a>
-            <a href="{% url 'signup' %}" class="btn btn-light mt-2 mx-2"><i class="fa fa-user-plus" aria-hidden="true"></i> Sign Up</a>
+            <a href="{% url 'login' %}" class="btn btn-light mt-2 mx-2 {% if request.resolver_match.url_name == 'login' %}is-active{% endif %}"{% if request.resolver_match.url_name == 'login' %} aria-current="page"{% endif %}><i class="fa fa-sign-in" aria-hidden="true"></i> Sign In</a>
+            <a href="{% url 'signup' %}" class="btn btn-light mt-2 mx-2 {% if request.resolver_match.url_name == 'signup' %}is-active{% endif %}"{% if request.resolver_match.url_name == 'signup' %} aria-current="page"{% endif %}><i class="fa fa-user-plus" aria-hidden="true"></i> Sign Up</a>
             {% endif %}            
             </div>
         </div>
