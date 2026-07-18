@@ -1,0 +1,20 @@
+@'
+
+# Local Django data
+db.sqlite3
+db.sqlite3-journal
+
+# Uploaded/runtime media
+media/*
+!media/.gitkeep
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Recovery and private material
+private-archive/
+private-permissions/
+
+'@ | Add-Content .gitignore
