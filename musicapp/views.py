@@ -1,3 +1,4 @@
+from django.http import HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import *
 from django.db.models import Q
@@ -209,7 +210,7 @@ def recent(request):
 
 @login_required(login_url='login')
 def detail(request, song_id):
-    songs = Song.objects.filter(id=song_id).first()
+    songs = get_object_or_404(Song, id=song_id)
 
     # Add data to recent database
     if list(Recent.objects.filter(song=songs,user=request.user).values()):
@@ -222,7 +223,7 @@ def detail(request, song_id):
 
 
     playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct
-    is_favourite = Favourite.objects.filter(user=request.user).filter(song=song_id).values('is_fav')
+    is_favourite = Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists()
 
     if request.method == "POST":
         if 'playlist' in request.POST:
@@ -230,22 +231,17 @@ def detail(request, song_id):
             q = Playlist(user=request.user, song=songs, playlist_name=playlist_name)
             q.save()
             messages.success(request, "Song added to playlist!")
-        elif 'add-fav' in request.POST:
-            is_fav = True
-            query = Favourite(user=request.user, song=songs, is_fav=is_fav)
-            print(f'query: {query}')
-            query.save()
+        elif request.POST.get('favorite_action') == 'add':
+            if not Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists():
+                Favourite.objects.create(user=request.user, song=songs, is_fav=True)
             messages.success(request, "Added to favorite!")
             return redirect('detail', song_id=song_id)
-        elif 'rm-fav' in request.POST:
-            is_fav = True
-            query = Favourite.objects.filter(user=request.user, song=songs, is_fav=is_fav)
-            print(f'user: {request.user}')
-            print(f'song: {songs.id} - {songs}')
-            print(f'query: {query}')
-            query.delete()
+        elif request.POST.get('favorite_action') == 'remove':
+            Favourite.objects.filter(user=request.user, song=songs, is_fav=True).delete()
             messages.success(request, "Removed from favorite!")
             return redirect('detail', song_id=song_id)
+        elif 'favorite_action' in request.POST:
+            return HttpResponseBadRequest("Invalid favourite action.")
 
     context = {'songs': songs, 'playlists': playlists, 'is_favourite': is_favourite,'last_played':last_played_song}
     return render(request, 'musicapp/detail.html', context=context)
@@ -275,14 +271,21 @@ def playlist_songs(request, playlist_name):
     return render(request, 'musicapp/playlist_songs.html', context=context)
 
 
+@login_required(login_url='login')
 def favourite(request):
     songs = Song.objects.filter(favourite__user=request.user, favourite__is_fav=True).distinct()
-    print(f'songs: {songs}')
     
     if request.method == "POST":
-        song_id = list(request.POST.keys())[1]
-        favourite_song = Favourite.objects.filter(user=request.user, song__id=song_id, is_fav=True)
-        favourite_song.delete()
+        song_id = request.POST.get('song_id')
+        if not song_id:
+            return HttpResponseBadRequest("Missing song id.")
+        try:
+            song_id = int(song_id)
+        except ValueError:
+            return HttpResponseBadRequest("Invalid song id.")
+        get_object_or_404(Song, id=song_id)
+        Favourite.objects.filter(user=request.user, song__id=song_id, is_fav=True).delete()
         messages.success(request, "Removed from favourite!")
+        return redirect('favourite')
     context = {'songs': songs}
     return render(request, 'musicapp/favourite.html', context=context)

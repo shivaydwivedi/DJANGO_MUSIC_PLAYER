@@ -98,16 +98,16 @@
                         {% if is_favourite %}
                         <span class="d-flex align-items-center mt-2 ml-2">
                             <!-- <i class="heart fa fa-heart my-auto"></i> -->
-                            <button type="submit" name="rm-fav" class="btn btn-danger btn-block"
+                            <input type="hidden" name="favorite_action" value="remove">
+                            <button type="submit" class="btn btn-danger btn-block"
                                 style="width: 358px;margin-left:-8px;background-color: red;">Remove from Favourites</button>
                         </span>
                         {% else %}
                         <span class="d-flex align-items-center mt-2 ml-2">
                             <!-- <i class="heart fa fa-heart my-auto"></i> -->
-                            <button type="submit" name="add-fav" class="btn btn-danger btn-block"
+                            <input type="hidden" name="favorite_action" value="add">
+                            <button type="submit" class="btn btn-danger btn-block"
                                 style="width: 358px;margin-left:-8px;background-color: red;"><i class="heart fa fa-heart-o my-auto" style="color:white"></i> Add to Favourites</button>
-
-                            <!-- <input type="submit" id="favbtn" class="btn btn-primary" name="add-fav" value="Add to Favourites"> -->
                         </span>
 
                         {% endif %}
