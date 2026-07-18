@@ -20,3 +20,7 @@ private-permissions/
 # Local Python environments
 .venv/
 .python38/
+
+# Python cache files
+__pycache__/
+*.py[cod]
