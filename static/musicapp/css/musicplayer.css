@@ -938,6 +938,131 @@ body .player audio {
   z-index: 1;
 }
 
+.auth-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: var(--space-6) 15px var(--space-7);
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.auth-intro {
+  min-width: 0;
+}
+
+.auth-intro h1 {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text);
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1.08;
+}
+
+.auth-intro p {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.auth-card {
+  padding: var(--space-5);
+  background: rgba(21, 31, 43, 0.86);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+}
+
+.auth-card h2 {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.auth-card-subtitle {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.auth-form .form-field {
+  margin: 0;
+}
+
+.auth-form .form-control {
+  width: 100%;
+}
+
+.auth-submit {
+  width: 100%;
+}
+
+.auth-switch {
+  margin: var(--space-4) 0 0;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.auth-social {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.auth-divider {
+  margin: var(--space-5) 0;
+  text-align: center;
+  border-top: 1px solid var(--color-border);
+}
+
+.auth-divider span {
+  display: inline-block;
+  padding: 0 var(--space-3);
+  background: var(--color-card);
+  color: var(--color-text-muted);
+  position: relative;
+  top: -0.75rem;
+}
+
+.form-errors,
+.field-errors {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  color: #ffdce1;
+  background: rgba(255, 95, 109, 0.1);
+  border: 1px solid rgba(255, 95, 109, 0.34);
+  border-radius: var(--radius-md);
+}
+
+.field-errors {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.9rem;
+}
+
+.form-help {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.field-errors ul,
+.form-errors ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
 @media (max-width: 767.98px) {
   :root {
     --nav-height: 64px;
@@ -1028,6 +1153,19 @@ body .player audio {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+  }
+
+  .auth-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .auth-intro h1 {
+    font-size: 2.3rem;
+  }
+
+  .auth-card {
+    padding: var(--space-4);
   }
 
   .detail-layout {
