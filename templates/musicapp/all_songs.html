@@ -3,120 +3,66 @@
 {% block title %} All Songs {% endblock title %}
 {% block body %}
 
-<br>
-<div class="container">
-  <div class="col-md-13">
-    <form class="form-horizontal" role="search" method="get" action=''>
-      <div class="form-group">
-        <div class="input-group">
-          <div class="input-group">
-            <input type="text" class="form-control input-lg" style="border-radius: 5px;"
-            name="q" value="{{ request.GET.q }}" placeholder= "Search Songs "/>
+<div class="app-page">
+  <section class="page-hero" aria-labelledby="all-songs-title">
+    <div>
+      <p class="section-kicker">Library</p>
+      <h1 id="all-songs-title">All Songs</h1>
+      <p>Search the full catalog by song, language, and singer.</p>
+    </div>
 
-            <select name="languages" class="custom-select mx-1" style="border-radius: 5px;">
-              <option selected="selected" disabled>Languages</option>
-              {% if all_languages %}
-                  {% for language in all_languages %}
-                      <option value={{language}}>{{language}}</option>
-                  {% endfor %}
-              {% endif %}
-            </select>
-            <select name="singers" class="custom-select mx-1" style="border-radius: 5px;">
-              <option selected="selected" disabled>Singers</option>
-              {% if all_singers %}
-                  {% for singer in all_singers %}
-                      <option value={{singer}}>{{singer}}</option>
-                  {% endfor %}
-              {% endif %}
-            </select>
-                          
-            <span class='input-group-btn'>
-              <button type="submit" style="border-radius: 5px;" class="btn btn-primary">Search</button>
-            </span>
-          </div>
+    <form class="search-panel filter-panel" role="search" method="get" action="">
+      <div class="filter-row">
+        <div class="form-field">
+          <label for="song-search">Song name</label>
+          <input id="song-search" type="text" class="form-control input-lg" name="q" value="{{ request.GET.q }}" placeholder="Search Songs">
         </div>
+        <div class="form-field">
+          <label for="language-filter">Language</label>
+          <select id="language-filter" name="languages" class="custom-select">
+            <option selected="selected" disabled>Languages</option>
+            {% if all_languages %}
+            {% for language in all_languages %}
+            <option value="{{ language }}">{{ language }}</option>
+            {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="singer-filter">Singer</label>
+          <select id="singer-filter" name="singers" class="custom-select">
+            <option selected="selected" disabled>Singers</option>
+            {% if all_singers %}
+            {% for singer in all_singers %}
+            <option value="{{ singer }}">{{ singer }}</option>
+            {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
       </div>
     </form>
-  </div>
+  </section>
 
-  {% if not query_search %}
   <header class="section-heading">
-    <h5 class="section-title">ALL SONGS</h5>
-  </header>
-  <hr>
-  {% else %}
-  <header class="section-heading">
-    <h5 class="section-title">SEARCH RESULTS</h5>
-  </header>
-  <hr>
-  {% endif %}
-  <!-- Song list -->
-  <div class="row" style="margin-right: 65px;margin-left:-15px;">
-    {% if songs %}
-    {% for song in songs %}
-    <div class="col-sm-2 col-md-2" style="padding-bottom: 15px;">
-      <div class="hovereffect">
-        {% if song.song_img %}
-        <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135"
-          style="border-radius: 8px 8px 8px 8px;">
-        {% else %}
-        <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-        {% endif %}
-        <div class="overlay">
-          <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'play_song' song.id %}"><i class="fa fa-play"
-              aria-hidden="true"></i></a>
-          <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle"
-              aria-hidden="true"></i></a>
-
-        </div>
-      </div>
+    <div>
+      <p class="section-kicker">{% if query_search %}Results{% else %}Catalog{% endif %}</p>
+      <h2 class="section-title">{% if query_search %}Search Results{% else %}All Songs{% endif %}</h2>
+      <p class="section-subtitle">Play a track or open its detail page for collection actions.</p>
     </div>
-    {% endfor %}
-    {% else %}
-    <p class="mx-3">No songs available yet.</p>
-    {% endif %}
+  </header>
 
+  {% if songs %}
+  <div class="song-grid">
+    {% for song in songs %}
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' %}
+    {% endfor %}
   </div>
+  {% else %}
+  <div class="empty-state">{% if query_search %}No songs match those filters yet.{% else %}No songs available yet.{% endif %}</div>
+  {% endif %}
 </div>
 
-<br>
-<br>
-<br>
-<br>
-<footer class="footer">
-  <div class="player" style="padding-left: 10px;padding-top:10px;background-color: #459dfb;">
-    {% if last_played %}
-    {% if last_played.song_img %}
-    <div class="left"><img src="{{last_played.song_img.url}}" height="90" width="90" style="border-radius: 10px 10px 10px 10px;"></div>
-    {% else %}
-    <div class="left" style="height: 90px;width: 90px;color: white;">Cover unavailable</div>
-    {% endif %}
-    <div class="right">
-       <div class="top">
-          <a class="song" style="margin-left: 15px;color: white;">{{last_played.name}}</a>
-          <a class="artist" style="margin-left: 15px;color:white">{{last_played.album}}</a>
-       </div>
-       <div class="bottom">
-        {% if last_played.song_file %}
-        {% if first_time %}
-          <audio controls=""  name="media" style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px"><source src="{{last_played.song_file.url}}" type="audio/mpeg" ></audio>
-        {% else %}
-          <audio controls="" autoplay name="media" style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px"><source src="{{last_played.song_file.url}}" type="audio/mpeg" ></audio>
-        {% endif %}
-        {% else %}
-        <a class="song" style="margin-left: 15px;color: white;">Audio unavailable.</a>
-        {% endif %}
-        </div>
-    </div>
-    {% else %}
-    <div class="right">
-      <div class="top">
-        <a class="song" style="margin-left: 15px;color: white;">No song is ready to play yet.</a>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-</footer>
-
+{% include 'musicapp/partials/player.html' %}
 
 {% endblock body %}

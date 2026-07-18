@@ -1,0 +1,34 @@
+<footer class="footer player-shell">
+  <div class="player">
+    {% if last_played %}
+    {% if last_played.song_img %}
+    <div class="left"><img src="{{ last_played.song_img.url }}" alt="{{ last_played.name }} cover"></div>
+    {% else %}
+    <div class="left">Cover unavailable</div>
+    {% endif %}
+    <div class="right">
+      <div class="top">
+        <span class="song">{{ last_played.name }}</span>
+        <span class="artist">{{ last_played.album }}</span>
+      </div>
+      <div class="bottom">
+        {% if last_played.song_file %}
+        {% if first_time %}
+        <audio controls name="media"><source src="{{ last_played.song_file.url }}" type="audio/mpeg"></audio>
+        {% else %}
+        <audio controls autoplay name="media"><source src="{{ last_played.song_file.url }}" type="audio/mpeg"></audio>
+        {% endif %}
+        {% else %}
+        <span class="song">Audio unavailable.</span>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="right">
+      <div class="top">
+        <span class="song">No song is ready to play yet.</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</footer>
