@@ -1,4 +1,4 @@
-from django.http import HttpResponseBadRequest
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import *
 from django.db.models import Q
@@ -15,6 +15,27 @@ def _get_last_played_song(user):
     if last_recent:
         return last_recent.song
     return None
+
+
+def _get_valid_playlist_name(request):
+    playlist_name = request.POST.get('playlist_name', '').strip()
+    if not playlist_name:
+        return None, "Missing playlist name."
+
+    max_length = Playlist._meta.get_field('playlist_name').max_length
+    if max_length is not None and len(playlist_name) > max_length:
+        return None, "Playlist name is too long."
+
+    return playlist_name, None
+
+
+def _is_valid_playlist_name(playlist_name):
+    playlist_name = playlist_name.strip()
+    if not playlist_name:
+        return False
+
+    max_length = Playlist._meta.get_field('playlist_name').max_length
+    return max_length is None or len(playlist_name) <= max_length
 
 
 def index(request):
@@ -222,15 +243,19 @@ def detail(request, song_id):
     last_played_song = _get_last_played_song(request.user)
 
 
-    playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct
+    playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct()
     is_favourite = Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists()
 
     if request.method == "POST":
-        if 'playlist' in request.POST:
-            playlist_name = request.POST["playlist"]
-            q = Playlist(user=request.user, song=songs, playlist_name=playlist_name)
-            q.save()
+        if request.POST.get('playlist_action') in ['create', 'add']:
+            playlist_name, error = _get_valid_playlist_name(request)
+            if error:
+                return HttpResponseBadRequest(error)
+            Playlist.objects.get_or_create(user=request.user, song=songs, playlist_name=playlist_name)
             messages.success(request, "Song added to playlist!")
+            return redirect('detail', song_id=song_id)
+        elif 'playlist_action' in request.POST:
+            return HttpResponseBadRequest("Invalid playlist action.")
         elif request.POST.get('favorite_action') == 'add':
             if not Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists():
                 Favourite.objects.create(user=request.user, song=songs, is_fav=True)
@@ -251,20 +276,34 @@ def mymusic(request):
     return render(request, 'musicapp/mymusic.html')
 
 
+@login_required(login_url='login')
 def playlist(request):
-    playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct
+    playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct()
     context = {'playlists': playlists}
     return render(request, 'musicapp/playlist.html', context=context)
 
 
+@login_required(login_url='login')
 def playlist_songs(request, playlist_name):
+    if not _is_valid_playlist_name(playlist_name):
+        return HttpResponseBadRequest("Invalid playlist name.")
+    if not Playlist.objects.filter(playlist_name=playlist_name, user=request.user).exists():
+        raise Http404("Playlist not found.")
+
     songs = Song.objects.filter(playlist__playlist_name=playlist_name, playlist__user=request.user).distinct()
 
     if request.method == "POST":
-        song_id = list(request.POST.keys())[1]
-        playlist_song = Playlist.objects.filter(playlist_name=playlist_name, song__id=song_id, user=request.user)
-        playlist_song.delete()
+        song_id = request.POST.get('song_id')
+        if not song_id:
+            return HttpResponseBadRequest("Missing song id.")
+        try:
+            song_id = int(song_id)
+        except ValueError:
+            return HttpResponseBadRequest("Invalid song id.")
+        get_object_or_404(Song, id=song_id)
+        Playlist.objects.filter(playlist_name=playlist_name, song__id=song_id, user=request.user).delete()
         messages.success(request, "Song removed from playlist!")
+        return redirect('playlist_songs', playlist_name=playlist_name)
 
     context = {'playlist_name': playlist_name, 'songs': songs}
 
