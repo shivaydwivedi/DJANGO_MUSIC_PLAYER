@@ -391,3 +391,149 @@ class EmptyLibraryPageTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Playlist.objects.filter(user=owner, song=song, playlist_name='Shared Name').exists())
         self.assertTrue(Playlist.objects.filter(user=other_user, song=song, playlist_name='Shared Name').exists())
+
+    def test_anonymous_playback_routes_require_login(self):
+        song = self._create_song()
+        before = self._counts()
+
+        routes = [
+            reverse('play_song', args=[song.id]),
+            reverse('play_song_index', args=[song.id]),
+            reverse('play_recent_song', args=[song.id]),
+        ]
+
+        for url in routes:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(reverse('login'), response['Location'])
+                self.assertEqual(self._counts(), before)
+
+    def test_playback_invalid_song_id_returns_404_without_history_mutation(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        self.client.force_login(user)
+
+        routes = [
+            reverse('play_song', args=[999]),
+            reverse('play_song_index', args=[999]),
+            reverse('play_recent_song', args=[999]),
+        ]
+
+        for url in routes:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(self._counts(), before)
+
+    def test_playback_routes_record_recent_for_current_user(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('play_song', args=[song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Recent.objects.filter(user=user, song=song).count(), 1)
+
+    def test_repeated_playback_moves_song_to_newest_without_duplicates(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        first_song = self._create_song(name='First Recent Song')
+        second_song = self._create_song(name='Second Recent Song')
+        self.client.force_login(user)
+
+        self.client.get(reverse('play_song', args=[first_song.id]))
+        self.client.get(reverse('play_song', args=[second_song.id]))
+        self.client.get(reverse('play_song', args=[first_song.id]))
+
+        rows = list(Recent.objects.filter(user=user).order_by('-id'))
+        self.assertEqual([row.song for row in rows], [first_song, second_song])
+        self.assertEqual(Recent.objects.filter(user=user, song=first_song).count(), 1)
+
+    def test_playback_history_is_scoped_to_current_user(self):
+        owner = User.objects.create_user(username='owner', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        song = self._create_song()
+        Recent.objects.create(user=other_user, song=song)
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('play_song_index', args=[song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Recent.objects.filter(user=owner, song=song).count(), 1)
+        self.assertEqual(Recent.objects.filter(user=other_user, song=song).count(), 1)
+
+    def test_detail_get_does_not_create_recent_history(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._counts(), before)
+
+    def test_recent_page_collapses_duplicate_history_in_newest_order(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        first_song = self._create_song(name='First Recent Song')
+        second_song = self._create_song(name='Second Recent Song')
+        Recent.objects.create(user=user, song=first_song)
+        Recent.objects.create(user=user, song=second_song)
+        Recent.objects.create(user=user, song=first_song)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('recent'))
+        content = response.content.decode()
+        first_play_url = reverse('play_recent_song', args=[first_song.id])
+        second_play_url = reverse('play_recent_song', args=[second_song.id])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, first_play_url, count=1)
+        self.assertContains(response, second_play_url, count=1)
+        self.assertLess(content.index(first_play_url), content.index(second_play_url))
+
+    def test_recent_search_filters_current_user_history_without_mutation(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        matching_song = self._create_song(name='Blue Search Match')
+        non_matching_song = self._create_song(name='Quiet Nonmatch')
+        other_user_song = self._create_song(name='Blue Other User Match')
+        Recent.objects.create(user=user, song=non_matching_song)
+        Recent.objects.create(user=user, song=matching_song)
+        Recent.objects.create(user=other_user, song=other_user_song)
+        self.client.force_login(user)
+        before_count = Recent.objects.count()
+        before_order = list(Recent.objects.values_list('id', 'user_id', 'song_id').order_by('-id'))
+
+        response = self.client.get(reverse('recent'), {'q': 'Blue'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Blue Search Match')
+        self.assertNotContains(response, 'Quiet Nonmatch')
+        self.assertNotContains(response, 'Blue Other User Match')
+        self.assertEqual(Recent.objects.count(), before_count)
+        self.assertEqual(
+            list(Recent.objects.values_list('id', 'user_id', 'song_id').order_by('-id')),
+            before_order,
+        )
+
+    def test_recent_page_missing_media_renders_fallbacks(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = Song.objects.create(
+            name='Blank Recent Song',
+            album='Recovery Album',
+            language='English',
+            year=2026,
+            singer='Test Singer',
+        )
+        Recent.objects.create(user=user, song=song)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('recent'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cover unavailable')
+        self.assertContains(response, 'Audio unavailable.')
+        self.assertEqual(self._counts(), before)
