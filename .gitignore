@@ -16,3 +16,7 @@ media/*
 private-archive/
 private-permissions/
 
+
+# Local Python environments
+.venv/
+.python38/
