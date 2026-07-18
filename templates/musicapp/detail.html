@@ -1,168 +1,142 @@
 {% extends 'base.html' %}
 {% load socialaccount %}
 {% block title %} Detail {% endblock title %}
-{% block header %}
-<style>
-    .heart {
-        font-size: 25px;
-        color: red;
-    }
-</style>
-{% endblock header %}
+
 {% block body %}
-<br>
+
 {% if messages %}
-<ul class="messages" style="width: 600px;margin-left:400px">
+<div class="messages">
     {% for message in messages %}
     <div class="alert alert-success">
-        <strong>Success!</strong> {{message}}
+        <strong>Success!</strong> {{ message }}
         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
             <span aria-hidden="true">&times;</span>
         </button>
     </div>
     {% endfor %}
-</ul>
+</div>
 {% endif %}
-<br>
-<div class="container">
-    <div class="card">
-        <div class="container-fliud">
-            <div class="wrapper row">
-                <div class="preview col-md-5">
 
-                    <div class="preview-pic tab-content">
-                        {% if songs.song_img %}
-                        <div class="tab-pane active"><img src="{{songs.song_img.url}}" height="300" width="300"
-                                style="padding:20px;border-radius: 60px 60px 60px 60px;"></div>
-                        {% else %}
-                        <div class="tab-pane active" style="padding:20px;">Cover unavailable</div>
-                        {% endif %}
-                    </div>
+<div class="app-page">
+    <section class="page-hero page-hero-compact" aria-labelledby="song-detail-title">
+        <div>
+            <p class="section-kicker">Song Detail</p>
+            <h1 id="song-detail-title">{{ songs.name }}</h1>
+            <p>{{ songs.singer }} / {{ songs.album }}</p>
+        </div>
+    </section>
 
+    <section class="detail-layout" aria-label="{{ songs.name }} details">
+        <div class="detail-artwork">
+            {% if songs.song_img %}
+            <img src="{{ songs.song_img.url }}" alt="{{ songs.name }} cover">
+            {% else %}
+            <div class="detail-artwork-fallback">Cover unavailable</div>
+            {% endif %}
+        </div>
+
+        <div class="detail-panel">
+            <p class="section-kicker">{{ songs.language }}</p>
+            <h2 class="detail-title">{{ songs.name }}</h2>
+            <p class="detail-artist">{{ songs.singer }}</p>
+
+            <div class="metadata-grid" aria-label="Song metadata">
+                <div class="metadata-item">
+                    <span class="metadata-label">Album</span>
+                    <span class="metadata-value">{{ songs.album }}</span>
                 </div>
-                <div class="details col-md-6">
-                    <br>
-                    <h3 class="product-title">{{songs.name}}</h3>
-                    <h6>Album: {{songs.album}}</h6>
-                    <h6>Singer: {{songs.singer}}</h6>
-                    <h6>Release Year: {{songs.year}}</h6>
-                    <br>
-                    {% if songs.song_file %}
-                    <audio controls>
-                        <source src="{{ songs.song_file.url }}" type="audio/mpeg">
-                    </audio>
-                    {% else %}
-                    <p>Audio unavailable.</p>
-                    {% endif %}
+                <div class="metadata-item">
+                    <span class="metadata-label">Language</span>
+                    <span class="metadata-value">{{ songs.language }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Year</span>
+                    <span class="metadata-value">{{ songs.year }}</span>
+                </div>
+            </div>
 
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="playlist_action" value="create">
-                        <button style="float: left;" type="button" class="btn btn-primary" data-toggle="modal"
-                            data-target="#exampleModal" data-whatever="@mdo"><i class="fa fa-plus" aria-hidden="true"></i> Create New Playlist</button>
-                        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog"
-                            aria-labelledby="exampleModalLabel" aria-hidden="true">
-                            <div class="modal-dialog" role="document">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="exampleModalLabel">New Playlist</h5>
-                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                            <span aria-hidden="true">&times;</span>
-                                        </button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form>
-                                            <div class="form-group">
-                                                <label for="recipient-name" class="col-form-label">Name</label>
-                                                <input type="text" class="form-control" id="recipient-name"
-                                                    name="playlist_name">
-                                            </div>
-                                        </form>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary"
-                                            data-dismiss="modal">Close</button>
-                                        <button type="Submit" class="btn btn-primary">Create Playlist</button>
-                                    </div>
-                                </div>
+            <div class="detail-audio">
+                <h2 class="section-title">Play Preview</h2>
+                {% if songs.song_file %}
+                <audio controls aria-label="Audio preview for {{ songs.name }}">
+                    <source src="{{ songs.song_file.url }}" type="audio/mpeg">
+                </audio>
+                {% else %}
+                <div class="song-card-audio-unavailable">Audio unavailable.</div>
+                {% endif %}
+            </div>
+
+            <div class="detail-actions">
+                <section class="detail-action-card" aria-labelledby="playlist-actions-title">
+                    <h2 id="playlist-actions-title">Playlist Actions</h2>
+                    <div class="detail-action-row">
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#createPlaylistModal">
+                            <i class="fa fa-plus" aria-hidden="true"></i> Create New Playlist
+                        </button>
+
+                        <form method="post" class="detail-action-row" aria-label="Add song to an existing playlist">
+                            {% csrf_token %}
+                            <input type="hidden" name="playlist_action" value="add">
+                            <div class="form-field">
+                                <label for="playlist-name-select">Add to playlist</label>
+                                <select id="playlist-name-select" class="custom-select" name="playlist_name">
+                                    <option selected="selected" disabled>Add to Playlist</option>
+                                    {% if playlists %}
+                                    {% for playlist in playlists %}
+                                    <option value="{{ playlist.playlist_name }}">{{ playlist.playlist_name }}</option>
+                                    {% endfor %}
+                                    {% endif %}
+                                </select>
                             </div>
-                        </div>
-                    </form>
+                            <button type="submit" class="btn btn-ghost">Add</button>
+                        </form>
+                    </div>
+                </section>
 
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="playlist_action" value="add">
-                        <select style="margin-left: 10px;width: 170px;" class="btn btn-success"
-                            onChange="form.submit();" name="playlist_name">
-                            <option selected="selected" disabled style="color: black;">Add to Playlist</option>
-                            {% if playlists %}
-                            {% for playlist in playlists %}
-                            <option value={{playlist.playlist_name}}>{{playlist.playlist_name}}</option>
-                            {% endfor %}
-                            {% endif %}
-                        </select>
-                    </form>
-
+                <section class="detail-action-card" aria-labelledby="favourite-action-title">
+                    <h2 id="favourite-action-title">Favourite</h2>
+                    <p class="favourite-status">{% if is_favourite %}This song is saved to your favourites.{% else %}Save this song to your favourites.{% endif %}</p>
                     <form method="post">
                         {% csrf_token %}
                         {% if is_favourite %}
-                        <span class="d-flex align-items-center mt-2 ml-2">
-                            <!-- <i class="heart fa fa-heart my-auto"></i> -->
-                            <input type="hidden" name="favorite_action" value="remove">
-                            <button type="submit" class="btn btn-danger btn-block"
-                                style="width: 358px;margin-left:-8px;background-color: red;">Remove from Favourites</button>
-                        </span>
+                        <input type="hidden" name="favorite_action" value="remove">
+                        <button type="submit" class="btn btn-danger">Remove from Favourites</button>
                         {% else %}
-                        <span class="d-flex align-items-center mt-2 ml-2">
-                            <!-- <i class="heart fa fa-heart my-auto"></i> -->
-                            <input type="hidden" name="favorite_action" value="add">
-                            <button type="submit" class="btn btn-danger btn-block"
-                                style="width: 358px;margin-left:-8px;background-color: red;"><i class="heart fa fa-heart-o my-auto" style="color:white"></i> Add to Favourites</button>
-                        </span>
-
+                        <input type="hidden" name="favorite_action" value="add">
+                        <button type="submit" class="btn btn-danger"><i class="fa fa-heart-o" aria-hidden="true"></i> Add to Favourites</button>
                         {% endif %}
                     </form>
-
-
-
-                </div>
+                </section>
             </div>
         </div>
+    </section>
+</div>
+
+<div class="modal fade" id="createPlaylistModal" tabindex="-1" role="dialog" aria-labelledby="createPlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <form method="post" class="modal-content">
+            {% csrf_token %}
+            <input type="hidden" name="playlist_action" value="create">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createPlaylistModalLabel">New Playlist</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label for="new-playlist-name">Name</label>
+                    <input type="text" class="form-control" id="new-playlist-name" name="playlist_name">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-primary">Create Playlist</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<footer class="footer">
-    <div class="player" style="padding-left: 10px;padding-top:10px;background-color: #459dfb;">
-        {% if last_played %}
-        {% if last_played.song_img %}
-        <div class="left"><img src="{{last_played.song_img.url}}" height="90" width="90"
-                style="border-radius: 10px 10px 10px 10px;"></div>
-        {% else %}
-        <div class="left" style="height: 90px;width: 90px;color: white;">Cover unavailable</div>
-        {% endif %}
-        <div class="right">
-            <div class="top">
-                <a class="song" style="margin-left: 15px;color: white;">{{last_played.name}}</a>
-                <a class="artist" style="margin-left: 15px;color:white">{{last_played.album}}</a>
-            </div>
-            <div class="bottom">
-                {% if last_played.song_file %}
-                <audio controls="" _autoplay="" name="media"
-                    style="margin-left: 20px;margin-bottom: 10px;width: 1245px;height:30px">
-                    <source src="{{last_played.song_file.url}}" type="audio/mpeg"></audio>
-                {% else %}
-                <a class="song" style="margin-left: 15px;color: white;">Audio unavailable.</a>
-                {% endif %}
-            </div>
-        </div>
-        {% else %}
-        <div class="right">
-            <div class="top">
-                <a class="song" style="margin-left: 15px;color: white;">No song is ready to play yet.</a>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-</footer>
+{% include 'musicapp/partials/player.html' with first_time=True %}
 
 {% endblock body %}
