@@ -257,6 +257,7 @@ def detail(request, song_id):
     return render(request, 'musicapp/detail.html', context=context)
 
 
+@login_required(login_url='login')
 def mymusic(request):
     return render(request, 'musicapp/mymusic.html')
 

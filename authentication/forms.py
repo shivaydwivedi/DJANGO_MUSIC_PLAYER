@@ -25,6 +25,7 @@ class UserLoginForm(forms.Form):
 
 class RegistrationForm(UserCreationForm):
     username = forms.CharField(widget=forms.TextInput(attrs={'placeholder': 'Username'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'placeholder': 'Email'}))
     password1 = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Enter Password'}))
     password2 = forms.CharField(
         label='Password confirmation',
@@ -33,10 +34,17 @@ class RegistrationForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['username', 'password1', 'password2', ]
+        fields = ['username', 'email', 'password1', 'password2', ]
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("A user with that email already exists.")
+        return email
 
     def save(self, commit=True):
         user = super(RegistrationForm, self).save(commit=False)
+        user.email = self.cleaned_data['email']
         if commit:
             user.save()
         return user
