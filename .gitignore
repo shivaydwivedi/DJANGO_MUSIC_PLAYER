@@ -1,4 +1,3 @@
-@'
 
 # Local Django data
 db.sqlite3
@@ -17,4 +16,7 @@ media/*
 private-archive/
 private-permissions/
 
-'@ | Add-Content .gitignore
+
+# Local Python environments
+.venv/
+.python38/
