@@ -1,51 +1,62 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
 {% load socialaccount %}
 {% block title %} MusicApp | {{ title }} {% endblock title %}
-{% block header %}
-<style>
-    .or-seperator {
-    margin: 20px 0 10px;
-    text-align: center;
-    border-top: 1px solid #ccc;
-}
-.or-seperator i {
-    padding: 0 10px;
-    background: #f7f7f7;
-    position: relative;
-    top: -11px;
-    z-index: 1;
-}
-
-</style>
-{% endblock header %}
 
 {% block body %}
-<main role="main" class="container col-12 col-sm-8 col-md-6 col-lg-4 offset-sm-2 offset-md-3 offset-lg-4">
-  <br>
-  <h1 class="text-center">Sign In</h1>
-  <br>
-  <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-outline-dark btn-block">
-    <img width="20px" style="margin-bottom:3px; margin-right:5px" alt="Google sign-in" src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png" />
-    Sign in with Google
-  </a>
-  <div class="or-seperator"><i>or</i></div>
-  <form method="post">
-    {% csrf_token %}
-    {% if next %}
-    <input type="hidden" name="next" value="{{ next }}">
-    {% endif %}
-    {{form|crispy}}
-    <button class="btn btn-success btn-block" type="submit">Log In</button>
-    <p></p>
-    <!-- <p><a href="#" class="btn btn-danger btn-block" role="button"><i class="fa fa-google"></i> Sign up using Google</a></p> -->
-    
-    
-  </form>
-  <br>
-  <!-- <p>Already have an account? Please <a href="{% url 'signup' %}">log in</a>.</p> -->
-  <p>Don't have an account? Please <a href="{% url 'signup' %}">sign up</a> first.</p>
-  
-</main>
-{% endblock body %}
 
+<div class="auth-shell">
+  <section class="auth-layout" aria-labelledby="login-title">
+    <div class="auth-intro">
+      <p class="section-kicker">Welcome back</p>
+      <h1 id="login-title">Sign in to GALVANIC</h1>
+      <p>Return to your playlists, favourites, and recent listening history.</p>
+    </div>
+
+    <div class="auth-card">
+      <h2>Sign In</h2>
+      <p class="auth-card-subtitle">Use your account credentials to continue.</p>
+
+      <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-ghost auth-social">
+        <i class="fa fa-google" aria-hidden="true"></i>
+        <span>Sign in with Google</span>
+      </a>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      <form method="post" class="auth-form" novalidate>
+        {% csrf_token %}
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+
+        {% if form.non_field_errors %}
+        <div class="form-errors" role="alert">
+          {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="form-field">
+          <label for="{{ form.username.id_for_label }}">Username</label>
+          <input type="text" class="form-control" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default_if_none:'' }}" placeholder="Enter Username" autocomplete="username"{% if form.username.errors %} aria-describedby="username-errors"{% endif %}>
+          {% if form.username.errors %}
+          <div class="field-errors" id="username-errors" role="alert">{{ form.username.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.password.id_for_label }}">Password</label>
+          <input type="password" class="form-control" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" placeholder="Enter Password" autocomplete="current-password"{% if form.password.errors %} aria-describedby="password-errors"{% endif %}>
+          {% if form.password.errors %}
+          <div class="field-errors" id="password-errors" role="alert">{{ form.password.errors }}</div>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-primary auth-submit" type="submit">Log In</button>
+      </form>
+
+      <p class="auth-switch">Don't have an account? <a href="{% url 'signup' %}">Sign up</a>.</p>
+    </div>
+  </section>
+</div>
+
+{% endblock body %}
