@@ -2,73 +2,46 @@
 {% load socialaccount %}
 {% block title %} Playlist Songs {% endblock title %}
 {% block body %}
-<br>
+
 {% if messages %}
-<ul class="messages" style="width: 600px;margin-left:400px">
+<div class="messages">
   {% for message in messages %}
   <div class="alert alert-success">
-    <strong>Success!</strong> {{message}}
+    <strong>Success!</strong> {{ message }}
     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
       <span aria-hidden="true">&times;</span>
     </button>
   </div>
   {% endfor %}
-</ul>
+</div>
 {% endif %}
-<br>
-<br>
-<center>
-  <h3>Playlist-{{playlist_name}}</h3>
-</center>
-<table class="table table-hover table-primary">
-  <thead>
-    <tr>
-      <th scope="col">#</th>
-      <th scope="col">Cover</th>
-      <th scope="col">Song Name</th>
-      <th scope="col">Album</th>
-      <th scope="col">Singer</th>
-      <th scope="col">Song</th>
-      <th scope="col">Action</th>
 
-    </tr>
-  </thead>
-  <tbody>
-    {% if songs %}
+<div class="app-page">
+  <section class="page-hero page-hero-compact" aria-labelledby="playlist-songs-title">
+    <div>
+      <p class="section-kicker">Playlist</p>
+      <h1 id="playlist-songs-title">{{ playlist_name }}</h1>
+      <p>Songs currently attached to this playlist.</p>
+    </div>
+  </section>
+
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">Tracks</p>
+      <h2 class="section-title">Playlist Songs</h2>
+      <p class="section-subtitle">Remove keeps the existing POST-only playlist behavior.</p>
+    </div>
+  </header>
+
+  {% if songs %}
+  <div class="song-grid">
     {% for song in songs %}
-    <tr>
-      <th scope="row">{{forloop.counter}}</th>
-      <td>
-        {% if song.song_img %}
-        <img src="{{ song.song_img.url }}" height="60" width="60" style="border-radius: 8px 8px 8px 8px;">
-        {% else %}
-        Cover unavailable
-        {% endif %}
-      </td>
-      <td><a href="{% url 'detail' song.id %}">{{song.name}}</a></td>
-      <td>{{song.album}}</td>
-      <td>{{song.singer}}</td>
-      <td>
-        {% if song.song_file %}
-        <audio controls>
-          <source src="{{ song.song_file.url }}" type="audio/mpeg">
-        </audio>
-        {% else %}
-        Audio unavailable.
-        {% endif %}
-      </td>
-      <td>
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="song_id" value="{{song.id}}">
-          <input class="btn btn-primary" type="submit" value="Remove">
-        </form>
-      </td>
-    </tr>
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' show_audio=True remove_label='Remove' %}
     {% endfor %}
-    {% endif %}
-  </tbody>
-</table>
-
+  </div>
+  {% else %}
+  <div class="empty-state">No songs remain in this playlist. Under the current playlist membership model, a truly empty named playlist is not retained.</div>
+  {% endif %}
+</div>
 
 {% endblock body %}

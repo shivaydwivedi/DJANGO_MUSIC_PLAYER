@@ -3,96 +3,45 @@
 {% block title %} Recently Played {% endblock title %}
 
 {% block body %}
-<br>
-<div class="container">
 
-  <form class="form-horizontal" role="search" method="get" action=''>
-    <div class="form-group">
-      <div class="input-group">
-        <div class="input-group">
-          <input type="text" class="form-control input-lg " name="q" style="border-radius: 5px;"
-          value="{{ request.GET.q }}" placeholder= "Search Songs "/>               
-          <span class='input-group-btn mx-2'>
-            <button type="submit" style="border-radius: 5px;" class="btn btn-primary">Search</button>
-          </span>
-        </div>
-      </div>
+<div class="app-page">
+  <section class="page-hero page-hero-compact" aria-labelledby="recent-title">
+    <div>
+      <p class="section-kicker">Listening History</p>
+      <h1 id="recent-title">Recently Played</h1>
+      <p>Your newest plays appear first. Searching this page only filters the songs already in your history.</p>
     </div>
-  </form>
-  <!-- <hr> -->
-  {% if not query_search %}
+
+    <form class="search-panel filter-panel" role="search" method="get" action="">
+      <div class="filter-row filter-row-simple">
+        <div class="form-field">
+          <label for="recent-song-search">Song name</label>
+          <input id="recent-song-search" type="text" class="form-control input-lg" name="q" value="{{ request.GET.q }}" placeholder="Search Songs">
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+  </section>
+
   <header class="section-heading">
-    <h5 class="section-title">RECENTLY PLAYED</h5>
+    <div>
+      <p class="section-kicker">{% if query_search %}Results{% else %}Recent{% endif %}</p>
+      <h2 class="section-title">{% if query_search %}Search Results{% else %}Recently Played{% endif %}</h2>
+      <p class="section-subtitle">Use play to record another listen through the existing recent route.</p>
+    </div>
   </header>
-  <hr>
-  {% else %}
-  <header class="section-heading">
-    <h5 class="section-title">SEARCH RESULTS</h5>
-  </header>
-  <hr>
-  {% endif %}
-  
-  <!-- Song list -->
-  <div class="row" style="margin-right: 65px;margin-left:-15px;">
-    {% if recent_songs %}
+
+  {% if recent_songs %}
+  <div class="song-grid">
     {% for song in recent_songs %}
-    <div class="col-sm-2 col-md-2" style="padding-bottom: 15px;">
-      <div class="hovereffect">
-        {% if song.song_img %}
-        <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135"
-          style="border-radius: 8px 8px 8px 8px;">
-        {% else %}
-        <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-        {% endif %}
-        <div class="overlay">
-          <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'play_recent_song' song.id %}"><i class="fa fa-play"
-              aria-hidden="true"></i></a>
-          <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle"
-              aria-hidden="true"></i></a>
-        </div>
-      </div>
-    </div>
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_recent_song' %}
     {% endfor %}
-    {% else %}
-    <p class="mx-3">No recent songs yet.</p>
-    {% endif %}
   </div>
+  {% else %}
+  <div class="empty-state">{% if query_search %}No recent songs match that search.{% else %}No recent songs yet.{% endif %}</div>
+  {% endif %}
 </div>
-<br>
-<br>
-<br>
-<footer class="footer">
-  <div class="player" style="padding-left: 10px;padding-top:10px;background-color: #459dfb;">
-    {% if last_played %}
-    {% if last_played.song_img %}
-    <div class="left"><img src="{{last_played.song_img.url}}" height="90" width="90"
-        style="border-radius: 10px 10px 10px 10px;"></div>
-    {% else %}
-    <div class="left" style="height: 90px;width: 90px;color: white;">Cover unavailable</div>
-    {% endif %}
-    <div class="right">
-      <div class="top">
-        <a class="song" style="margin-left: 15px;color: white;">{{last_played.name}}</a>
-        <a class="artist" style="margin-left: 15px;color:white">{{last_played.album}}</a>
-      </div>
-      <div class="bottom">
-        {% if last_played.song_file %}
-        <audio controls="" autoplay name="media"
-          style="margin-left: 20px;margin-bottom: 10px;width: 1230px;height:30px">
-          <source src="{{last_played.song_file.url}}" type="audio/mpeg"></audio>
-        {% else %}
-        <a class="song" style="margin-left: 15px;color: white;">Audio unavailable.</a>
-        {% endif %}
-      </div>
-    </div>
-    {% else %}
-    <div class="right">
-      <div class="top">
-        <a class="song" style="margin-left: 15px;color: white;">No song is ready to play yet.</a>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-</footer>
+
+{% include 'musicapp/partials/player.html' %}
 
 {% endblock body %}

@@ -4,37 +4,42 @@
 
 {% block body %}
 
-<br>
-<!-- English Songs -->
-<div class="container">
-  <header class="section-heading">
-    <h5 class="section-title">ENGLISH SONGS</h5>
-  </header>
-  <hr>
-  <!-- Song list -->
-  <div class="row" style="margin-right: 65px;margin-left:-15px">
-    {% if english_songs %}
-    {% for song in english_songs %}
-    <div class="col-sm-2 col-md-2" style="padding-bottom: 15px;">
-      <div class="hovereffect">
-        {% if song.song_img %}
-        <img src="{{ song.song_img.url}}" class="img-responsive" height="135" width="135"
-          style="border-radius: 8px 8px 8px 8px;">
-        {% else %}
-        <div class="img-responsive" style="height: 135px;width: 135px;">Cover unavailable</div>
-        {% endif %}
-        <div class="overlay">
-          <a class="btn btn-outline-light mt-5 mx-1" href="{% url 'detail' song.id %}"><i class="fa fa-info-circle"
-              aria-hidden="true"></i></a>
-        </div>
-      </div>
+<div class="app-page">
+  <section class="page-hero page-hero-compact" aria-labelledby="english-songs-title">
+    <div>
+      <p class="section-kicker">Language Library</p>
+      <h1 id="english-songs-title">English Songs</h1>
+      <p>Browse English tracks and search by song name.</p>
     </div>
-    {% endfor %}
-    {% else %}
-    <p class="mx-3">No English songs available yet.</p>
-    {% endif %}
-  </div>
-</div>
 
+    <form class="search-panel filter-panel" role="search" method="get" action="">
+      <div class="filter-row filter-row-simple">
+        <div class="form-field">
+          <label for="english-song-search">Song name</label>
+          <input id="english-song-search" type="text" class="form-control input-lg" name="q" value="{{ request.GET.q }}" placeholder="Search Songs">
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+  </section>
+
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">English</p>
+      <h2 class="section-title">English Songs</h2>
+      <p class="section-subtitle">Open details or play through the existing catalog playback route.</p>
+    </div>
+  </header>
+
+  {% if english_songs %}
+  <div class="song-grid">
+    {% for song in english_songs %}
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">No English songs available yet.</div>
+  {% endif %}
+</div>
 
 {% endblock body %}

@@ -3,68 +3,46 @@
 {% block title %} Favourites {% endblock title %}
 
 {% block body %}
-<br>
 
 {% if messages %}
-<ul class="messages" style="width: 600px;margin-left:400px">
+<div class="messages">
   {% for message in messages %}
   <div class="alert alert-success">
-    <strong>Success!</strong> {{message}}
+    <strong>Success!</strong> {{ message }}
     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
       <span aria-hidden="true">&times;</span>
     </button>
   </div>
   {% endfor %}
-</ul>
+</div>
 {% endif %}
-<br>
-<br>
 
-<center>
-  <h3>Favourites</h3>
-</center>
+<div class="app-page">
+  <section class="page-hero page-hero-compact" aria-labelledby="favourites-title">
+    <div>
+      <p class="section-kicker">Saved Collection</p>
+      <h1 id="favourites-title">Favourites</h1>
+      <p>Your saved songs, collected in one place.</p>
+    </div>
+  </section>
 
-<table class="table table-hover table-primary">
-  <thead>
-    <tr>
-      <th scope="col">#</th>
-      <th scope="col">Song Name</th>
-      <th scope="col">Album</th>
-      <th scope="col">Singer</th>
-      <th scope="col">Song</th>
-      <th scope="col">Action</th>
+  <header class="section-heading">
+    <div>
+      <p class="section-kicker">Saved</p>
+      <h2 class="section-title">Favourite Songs</h2>
+      <p class="section-subtitle">Play, inspect, or remove songs from your saved collection.</p>
+    </div>
+  </header>
 
-    </tr>
-  </thead>
-  <tbody>
-    {% if songs %}
+  {% if songs %}
+  <div class="song-grid">
     {% for song in songs %}
-    <tr>
-      <th scope="row">{{forloop.counter}}</th>
-      <td><a href="{% url 'detail' song.id %}">{{song.name}}</a></td>
-      <td>{{song.album}}</td>
-      <td>{{song.singer}}</td>
-      <td>
-        {% if song.song_file %}
-        <audio controls>
-          <source src="{{ song.song_file.url }}" type="audio/mpeg">
-        </audio>
-        {% else %}
-        Audio unavailable.
-        {% endif %}
-      </td>
-      <td>
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="song_id" value="{{song.id}}">
-          <input class="btn btn-primary" type="submit" value="Remove">
-        </form>
-      </td>
-    </tr>
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' show_audio=True remove_label='Remove' %}
     {% endfor %}
-    {% endif %}
-  </tbody>
-</table>
-
+  </div>
+  {% else %}
+  <div class="empty-state">No favourite songs yet.</div>
+  {% endif %}
+</div>
 
 {% endblock body %}

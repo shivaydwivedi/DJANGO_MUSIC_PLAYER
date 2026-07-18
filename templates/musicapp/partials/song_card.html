@@ -1,0 +1,45 @@
+<article class="song-card">
+  <div class="song-card-cover">
+    {% if song.song_img %}
+    <img src="{{ song.song_img.url }}" alt="{{ song.name }} cover">
+    {% else %}
+    <div class="song-card-cover-fallback">Cover unavailable</div>
+    {% endif %}
+  </div>
+
+  <div class="song-card-body">
+    <h3 class="song-card-title">{{ song.name }}</h3>
+    <p class="song-card-meta">{{ song.singer }}</p>
+    <p class="song-card-detail">{{ song.album }}{% if song.language %} / {{ song.language }}{% endif %}{% if song.year %} / {{ song.year }}{% endif %}</p>
+  </div>
+
+  {% if show_audio %}
+  <div class="song-card-audio">
+    {% if song.song_file %}
+    <audio controls aria-label="Audio preview for {{ song.name }}">
+      <source src="{{ song.song_file.url }}" type="audio/mpeg">
+    </audio>
+    {% else %}
+    <div class="song-card-audio-unavailable">Audio unavailable.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="song-card-actions song-card-actions-inline" aria-label="{{ song.name }} actions">
+    {% if play_url_name %}
+    <a class="btn btn-primary icon-button" href="{% url play_url_name song.id %}" aria-label="Play {{ song.name }}">
+      <i class="fa fa-play" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+    <a class="btn btn-ghost icon-button" href="{% url 'detail' song.id %}" aria-label="View details for {{ song.name }}">
+      <i class="fa fa-info-circle" aria-hidden="true"></i>
+    </a>
+    {% if remove_label %}
+    <form method="post" class="song-card-action-form">
+      {% csrf_token %}
+      <input type="hidden" name="song_id" value="{{ song.id }}">
+      <button class="btn btn-danger" type="submit">{{ remove_label }}</button>
+    </form>
+    {% endif %}
+  </div>
+</article>

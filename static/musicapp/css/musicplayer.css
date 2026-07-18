@@ -177,11 +177,43 @@ textarea:focus-visible,
   margin-bottom: 0;
 }
 
+.page-hero-compact {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
 .search-panel {
   padding: var(--space-4);
   background: rgba(8, 11, 16, 0.5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+}
+
+.filter-panel {
+  margin-bottom: var(--space-5);
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 220px) minmax(150px, 220px) auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.filter-row-simple {
+  grid-template-columns: minmax(180px, 1fr) auto;
+}
+
+.form-field {
+  min-width: 0;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .section-heading {
@@ -378,12 +410,22 @@ hr {
 }
 
 .song-card {
+  display: flex;
+  min-width: 0;
+  min-height: 100%;
+  flex-direction: column;
+  padding: var(--space-3);
+  background: rgba(21, 31, 43, 0.78);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   min-width: 0;
   color: var(--color-text);
 }
 
 .song-card:hover {
   color: var(--color-text);
+  border-color: rgba(51, 214, 166, 0.34);
 }
 
 .song-card-cover {
@@ -393,7 +435,6 @@ hr {
   border-radius: var(--radius-lg);
   background: var(--color-card);
   border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-card);
 }
 
 .song-card-cover img {
@@ -430,6 +471,18 @@ hr {
   gap: var(--space-2);
 }
 
+.song-card-actions-inline {
+  position: static;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+.song-card-body {
+  min-width: 0;
+}
+
 .song-card-title {
   margin: var(--space-3) 0 var(--space-1);
   color: var(--color-text);
@@ -450,12 +503,78 @@ hr {
   color: var(--color-text-muted);
 }
 
+.song-card-audio {
+  margin-top: var(--space-3);
+}
+
+.song-card-audio audio {
+  width: 100%;
+  height: 34px;
+}
+
+.song-card-audio-unavailable {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  background: rgba(244, 247, 251, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+.song-card-action-form {
+  margin: 0;
+}
+
 .empty-state {
   padding: var(--space-5);
   color: var(--color-text-secondary);
   background: rgba(244, 247, 251, 0.04);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-lg);
+}
+
+.messages {
+  max-width: var(--content-width);
+  margin: 0 auto var(--space-4);
+  padding: 0 15px;
+  list-style: none;
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.collection-card {
+  display: block;
+  min-width: 0;
+  padding: var(--space-5);
+  color: var(--color-text);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.collection-card:hover,
+.collection-card:focus {
+  color: var(--color-text);
+  border-color: rgba(51, 214, 166, 0.42);
+  transform: translateY(-2px);
+}
+
+.collection-card-title {
+  margin: 0 0 var(--space-2);
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.collection-card-meta {
+  margin: 0;
+  color: var(--color-text-secondary);
 }
 
 .hovereffect {
@@ -707,6 +826,24 @@ body .player audio {
 
   .song-grid {
     grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+  }
+
+  .filter-row,
+  .filter-row-simple {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-row .btn {
+    width: 100%;
+  }
+
+  .song-card-actions-inline .btn-danger,
+  .song-card-action-form {
+    width: 100%;
+  }
+
+  .song-card-action-form .btn {
+    width: 100%;
   }
 
   body .player {
