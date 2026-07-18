@@ -1,15 +1,33 @@
+from django.conf import settings
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.http import require_POST
+from django.utils.http import is_safe_url
 from .forms import UserLoginForm, RegistrationForm
 
 
 # Create your views here.
+def _get_safe_redirect_url(request):
+    redirect_to = request.POST.get('next') or request.GET.get('next')
+    if redirect_to and is_safe_url(
+            url=redirect_to,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure()):
+        return redirect_to
+    return None
+
+
 def login_request(request):
+    if request.user.is_authenticated:
+        return redirect(_get_safe_redirect_url(request) or 'index')
+
     title = "Login"
     form = UserLoginForm(request.POST or None)
+    next_url = _get_safe_redirect_url(request)
     context = {
         'form': form,
         'title': title,
+        'next': next_url,
     }
     if form.is_valid():
         username = form.cleaned_data.get('username')
@@ -18,10 +36,7 @@ def login_request(request):
 
         login(request, user)
         # messages.info(request, f"You are now logged in  as {user}")
-        return redirect('index')
-    else:
-        print(form.errors)
-        # messages.error(request, 'Username or Password is Incorrect! ')
+        return redirect(next_url or settings.LOGIN_REDIRECT_URL)
     return render(request, 'authentication/login.html', context=context)
 
 
@@ -39,6 +54,7 @@ def signup_request(request):
     return render(request, 'authentication/signup.html', context=context)
 
 
+@require_POST
 def logout_request(request):
     logout(request)
     # messages.info(request, "Logged out successfully!")

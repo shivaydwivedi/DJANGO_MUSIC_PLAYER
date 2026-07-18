@@ -160,7 +160,10 @@
             <div class="collapse navbar-collapse justify-content-end" id="navbar">
             {% if request.user.is_active %}
             <h5 class="text-white mt-3 mx-2">Hi, {{ request.user.username }}</h5>
-            <a href="{% url 'logout' %}" class="btn btn-light mt-2 mx-2"> Sign Out <i class="fa fa-sign-out" aria-hidden="true"></i></a>
+            <form method="post" action="{% url 'logout' %}" class="mt-2 mx-2">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-light"> Sign Out <i class="fa fa-sign-out" aria-hidden="true"></i></button>
+            </form>
             {% else %}
             <a href="{% url 'login' %}" class="btn btn-light mt-2 mx-2"><i class="fa fa-sign-in" aria-hidden="true"></i> Sign In</a>
             <a href="{% url 'signup' %}" class="btn btn-light mt-2 mx-2"><i class="fa fa-user-plus" aria-hidden="true"></i> Sign Up</a>
