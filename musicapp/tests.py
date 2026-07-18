@@ -3,8 +3,14 @@ import tempfile
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
+from musicapp.management.commands.recovery_smoke_test import (
+    render_report,
+    run_smoke_checks,
+)
 
 from .models import Favourite, Playlist, Recent, Song
 
@@ -683,3 +689,38 @@ class EmptyLibraryPageTests(TestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 302)
                 self.assertIn(reverse('login'), response['Location'])
+
+    def test_recovery_smoke_harness_command_passes_and_reports_totals(self):
+        with transaction.atomic():
+            results = run_smoke_checks()
+            report = render_report(results)
+            transaction.set_rollback(True)
+
+        self.assertIn('PASS', report)
+        self.assertIn('Total checks:', report)
+        self.assertIn('Failed checks: 0', report)
+        self.assertIn('Overall result: PASS', report)
+        self.assertIn('legacy navigation design', report)
+        self.assertTrue(all(result['passed'] for result in results))
+
+    def test_recovery_smoke_harness_detects_wrong_expectation(self):
+        with transaction.atomic():
+            results = run_smoke_checks(expect_overrides={'public:index': 404})
+            transaction.set_rollback(True)
+
+        report = render_report(results)
+        self.assertIn('FAIL', report)
+        self.assertTrue(any(not result['passed'] for result in results))
+
+    def test_recovery_smoke_harness_leaves_row_counts_unchanged(self):
+        before = self._counts()
+        before['users'] = User.objects.count()
+
+        with transaction.atomic():
+            results = run_smoke_checks()
+            transaction.set_rollback(True)
+
+        after = self._counts()
+        after['users'] = User.objects.count()
+        self.assertTrue(all(result['passed'] for result in results))
+        self.assertEqual(after, before)
