@@ -32,6 +32,9 @@
   <div class="or-seperator"><i>or</i></div>
   <form method="post">
     {% csrf_token %}
+    {% if next %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% endif %}
     {{form|crispy}}
     <button class="btn btn-success btn-block" type="submit">Log In</button>
     <p></p>
@@ -45,5 +48,4 @@
   
 </main>
 {% endblock body %}
-
 

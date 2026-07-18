@@ -45,9 +45,13 @@
       <td>{{song.album}}</td>
       <td>{{song.singer}}</td>
       <td>
+        {% if song.song_file %}
         <audio controls>
           <source src="{{ song.song_file.url }}" type="audio/mpeg">
         </audio>
+        {% else %}
+        Audio unavailable.
+        {% endif %}
       </td>
       <td>
         <form method="post">
