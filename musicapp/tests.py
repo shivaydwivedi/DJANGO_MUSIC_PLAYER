@@ -1,12 +1,15 @@
 import shutil
 import tempfile
+from io import StringIO
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.db import transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from musicapp.management.commands.seed_demo_data import DEMO_ALBUM, DEMO_SONGS
 from musicapp.management.commands.recovery_smoke_test import (
     render_report,
     run_smoke_checks,
@@ -68,10 +71,10 @@ class EmptyLibraryPageTests(TestCase):
 
     def test_anonymous_public_pages_render_with_empty_library(self):
         routes = [
-            (reverse('index'), 'No songs available yet.'),
-            (reverse('all_songs'), 'No songs available yet.'),
-            (reverse('hindi_songs'), 'No Hindi songs available yet.'),
-            (reverse('english_songs'), 'No English songs available yet.'),
+            (reverse('index'), 'The catalog has no songs yet.'),
+            (reverse('all_songs'), 'The catalog has no songs yet.'),
+            (reverse('hindi_songs'), 'The catalog has no Hindi songs yet.'),
+            (reverse('english_songs'), 'The catalog has no English songs yet.'),
             (reverse('recent'), 'No recent songs yet.'),
         ]
 
@@ -583,6 +586,17 @@ class EmptyLibraryPageTests(TestCase):
                 self.assertContains(response, 'Cover unavailable')
                 self.assertEqual(self._counts(), before)
 
+    def test_public_search_pages_ignore_missing_q_without_error(self):
+        self._create_song_with_media_state('Search Edge Song', language='English')
+
+        for url in [reverse('index'), reverse('all_songs')]:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url, {'cachebust': 'manual-qa'})
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'Search Edge Song')
+                self.assertEqual(self._counts(), before)
+
     def test_blank_media_song_renders_safely_on_recent_page(self):
         user = User.objects.create_user(username='media-listener', password='secret-pass')
         song = self._create_song_with_media_state('Blank Recent Media Song')
@@ -724,3 +738,54 @@ class EmptyLibraryPageTests(TestCase):
         after['users'] = User.objects.count()
         self.assertTrue(all(result['passed'] for result in results))
         self.assertEqual(after, before)
+
+    def test_seed_demo_data_creates_fictional_catalog_without_media(self):
+        output = StringIO()
+
+        call_command('seed_demo_data', stdout=output)
+
+        demo_songs = Song.objects.filter(album=DEMO_ALBUM).order_by('name')
+        self.assertEqual(demo_songs.count(), len(DEMO_SONGS))
+        self.assertIn('8 created, 0 updated, 0 unchanged', output.getvalue())
+        self.assertTrue(demo_songs.filter(language='Hindi').exists())
+        self.assertTrue(demo_songs.filter(language='English').exists())
+        for song in demo_songs:
+            self.assertEqual(song.song_img.name, '')
+            self.assertEqual(song.song_file.name, '')
+
+    def test_seed_demo_data_is_idempotent(self):
+        first_output = StringIO()
+        second_output = StringIO()
+
+        call_command('seed_demo_data', stdout=first_output)
+        before_ids = list(Song.objects.filter(album=DEMO_ALBUM).values_list('id', flat=True).order_by('id'))
+        call_command('seed_demo_data', stdout=second_output)
+
+        self.assertEqual(Song.objects.filter(album=DEMO_ALBUM).count(), len(DEMO_SONGS))
+        self.assertEqual(
+            list(Song.objects.filter(album=DEMO_ALBUM).values_list('id', flat=True).order_by('id')),
+            before_ids,
+        )
+        self.assertIn('0 created, 0 updated, 8 unchanged', second_output.getvalue())
+
+    def test_seed_demo_data_populates_language_pages(self):
+        call_command('seed_demo_data', stdout=StringIO())
+
+        hindi_response = self.client.get(reverse('hindi_songs'))
+        english_response = self.client.get(reverse('english_songs'))
+
+        self.assertEqual(hindi_response.status_code, 200)
+        self.assertEqual(english_response.status_code, 200)
+        self.assertContains(hindi_response, 'Dil Ki Dhoop')
+        self.assertContains(english_response, 'Crimson Echo')
+        self.assertContains(hindi_response, 'Cover unavailable')
+        self.assertContains(english_response, 'Cover unavailable')
+
+    def test_seed_demo_data_clear_removes_only_demo_rows(self):
+        retained_song = self._create_song(name='Personal Song')
+        call_command('seed_demo_data', stdout=StringIO())
+
+        call_command('seed_demo_data', '--clear', stdout=StringIO())
+
+        self.assertFalse(Song.objects.filter(album=DEMO_ALBUM).exists())
+        self.assertTrue(Song.objects.filter(id=retained_song.id).exists())

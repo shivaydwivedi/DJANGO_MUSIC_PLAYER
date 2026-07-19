@@ -1,6 +1,6 @@
-# Galvanic Music Player
+# Sonica Music Player
 
-Galvanic is a recovered and redesigned Django music-player application. It keeps the original project idea, browser-based music discovery and playback, while adding a safer backend baseline, automated regression coverage, and a modern dark interface suitable for portfolio presentation.
+Sonica is a recovered and redesigned Django music-player application. It keeps the original project idea, browser-based music discovery and playback, while adding a safer backend baseline, automated regression coverage, and a modern dark interface suitable for portfolio presentation.
 
 The current release is the frontend QA pass that follows the `recovery-v1` tag. It is designed for local demonstration with legal, user-supplied media.
 
@@ -8,7 +8,7 @@ The current release is the frontend QA pass that follows the `recovery-v1` tag. 
 
 This project began as an inherited Django codebase that could not be run reliably in a modern local environment. The recovery work rebuilt the runtime around Django 3.0.8 and Python 3.8.10, restored database migrations, removed assumptions about archived media, repaired empty-library and missing-media crashes, and added focused tests around favourites, playlists, recent history, protected pages, and smoke coverage.
 
-The frontend work then introduced a shared design system, responsive page layouts, reusable song cards, protected-page polish, redesigned authentication screens, and consistent empty and missing-media states.
+The frontend work then introduced a shared red-accent design system, responsive page layouts, reusable song cards, protected-page polish, redesigned authentication screens, and consistent empty and missing-media states.
 
 ## Features
 
@@ -22,6 +22,8 @@ The frontend work then introduced a shared design system, responsive page layout
 - Empty-library and missing-media fallbacks.
 - Responsive dark UI with keyboard-visible focus states.
 - Recovery smoke command covering the main app routes.
+- Local username/password signup and login.
+- Optional Google authentication that stays hidden until configured.
 
 ## Screenshots
 
@@ -68,6 +70,7 @@ Update `.env` for your machine:
 ```env
 SECRET_KEY=replace-with-a-long-random-secret-key
 DEBUG=True
+ENABLE_GOOGLE_AUTH=False
 ```
 
 Apply migrations and create an admin user:
@@ -89,7 +92,27 @@ Open `http://127.0.0.1:8000/`.
 
 The original music library is not included. Add demo songs through Django admin using original, openly licensed, or otherwise authorized audio and cover art.
 
+For a repeatable local demo catalog, run:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py seed_demo_data
+```
+
+This creates eight fictional Sonica demo songs with Hindi and English metadata. It does not create users, download files, assign media paths, or add copyrighted songs. Running it repeatedly is safe and does not duplicate rows.
+
+To remove only rows created by the demo command:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py seed_demo_data --clear
+```
+
 Do not commit `db.sqlite3`, uploaded media, secrets, or copyrighted assets. The application includes fallbacks for recovered rows that have missing cover or audio fields.
+
+## Authentication
+
+Local signup and login are available by default. The fields are `username`, `email`, `password1`, `password2`, `password`, and optional `next` redirects for safe local navigation.
+
+Google authentication remains installed through Django Allauth but is disabled in local configuration by default. To enable it, set `ENABLE_GOOGLE_AUTH=True` and configure a real Google `SocialApp` in Django admin for the current site. Do not use placeholder credentials and do not commit secrets.
 
 ## Verification
 

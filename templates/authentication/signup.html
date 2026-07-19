@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load socialaccount %}
-{% block title %} MusicApp | {{ title }} {% endblock title %}
+{% block title %} Sonica | {{ title }} {% endblock title %}
 
 {% block body %}
 
@@ -8,7 +8,7 @@
   <section class="auth-layout" aria-labelledby="signup-title">
     <div class="auth-intro">
       <p class="section-kicker">Join the library</p>
-      <h1 id="signup-title">Create your GALVANIC account</h1>
+      <h1 id="signup-title">Create your Sonica account</h1>
       <p>Save favourites, build playlists, and keep your listening history close.</p>
     </div>
 
@@ -16,12 +16,14 @@
       <h2>Sign Up</h2>
       <p class="auth-card-subtitle">Create an account with a username, email, and password.</p>
 
+      {% if google_auth_configured %}
       <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-ghost auth-social">
         <i class="fa fa-google" aria-hidden="true"></i>
         <span>Sign up with Google</span>
       </a>
 
       <div class="auth-divider"><span>or</span></div>
+      {% endif %}
 
       <form method="post" class="auth-form" novalidate>
         {% csrf_token %}

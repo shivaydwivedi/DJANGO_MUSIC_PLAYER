@@ -92,7 +92,7 @@ def index(request):
     indexpage_english_songs = Song.objects.filter(id__in=sliced_ids)
 
     if len(request.GET) > 0:
-        search_query = request.GET.get('q')
+        search_query = request.GET.get('q') or ''
         filtered_songs = songs.filter(Q(name__icontains=search_query)).distinct()
         context = {'all_songs': filtered_songs,'last_played':last_played_song,'query_search':True}
         return render(request, 'musicapp/index.html', context)
@@ -177,7 +177,7 @@ def all_songs(request):
     all_languages = sorted(list(set([l.strip() for lang in qs_languages for l in lang])))
     
     if len(request.GET) > 0:
-        search_query = request.GET.get('q')
+        search_query = request.GET.get('q') or ''
         search_singer = request.GET.get('singers') or ''
         search_language = request.GET.get('languages') or ''
         filtered_songs = songs.filter(Q(name__icontains=search_query)).filter(Q(language__icontains=search_language)).filter(Q(singer__icontains=search_singer)).distinct()
