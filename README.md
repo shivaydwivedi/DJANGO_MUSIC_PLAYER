@@ -81,6 +81,13 @@ The supported settings module is `musicplayer.settings`. `ALLOWED_HOSTS` and
 For production-like runs with `DEBUG=False`, set a real `SECRET_KEY` and
 non-empty `ALLOWED_HOSTS`.
 
+Production HTTPS settings are environment-driven. Enable
+`SESSION_COOKIE_SECURE=True` and `CSRF_COOKIE_SECURE=True` for HTTPS
+deployments, set `SECURE_SSL_REDIRECT=True` when Django should redirect HTTP to
+HTTPS, and keep `SECURE_HSTS_SECONDS=0` until the deployed HTTPS setup is
+verified. Only set `TRUST_X_FORWARDED_PROTO=True` behind a trusted reverse proxy
+that strips and sets `X-Forwarded-Proto` correctly.
+
 Apply migrations and create an admin user:
 
 ```powershell
@@ -142,6 +149,13 @@ Run the recovery smoke harness:
 ```powershell
 .\.venv-django52\Scripts\python.exe manage.py recovery_smoke_test
 ```
+
+For production-like configuration checks, run `manage.py check --deploy` with
+temporary environment values and do not record real secrets in repository files.
+
+Static files are ready for `collectstatic` through `STATIC_ROOT=staticfiles`.
+Django does not safely serve uploaded production media by itself; deployment
+media storage remains a later platform-specific task.
 
 Expected recovery baseline:
 

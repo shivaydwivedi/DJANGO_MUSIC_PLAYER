@@ -29,8 +29,8 @@ Branch: `modernization/dependency-cleanup`
 Branch: `modernization/settings-hardening`
 
 - Status: settings entry-point cleanup complete on
-  `modernization/settings-cleanup`; production deployment hardening remains
-  deferred.
+  `modernization/settings-cleanup`; production security hardening complete on
+  `modernization/production-hardening`.
 - Make production settings explicit.
 - Add environment-driven allowed hosts, CSRF origins, secure cookies, and static
   configuration.

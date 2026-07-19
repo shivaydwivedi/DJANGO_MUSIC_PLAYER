@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.test import TestCase, override_settings
+from django.urls import path
 from django.urls import get_resolver, reverse
 from importlib import import_module
 
@@ -16,6 +17,16 @@ from musicapp.models import Favourite, Playlist, Recent, Song
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PRODUCTION_TEST_SECRET = 'production-settings-test-secret-value-with-enough-length-12345'
+
+
+def settings_test_error_view(request):
+    raise RuntimeError('sensitive production exception text')
+
+
+urlpatterns = [
+    path('settings-test-error/', settings_test_error_view),
+]
 
 
 class AuthenticationFlowTests(TestCase):
@@ -616,7 +627,7 @@ class SettingsConfigurationTests(TestCase):
         result = self._settings_probe(
             {
                 'DEBUG': 'False',
-                'SECRET_KEY': 'settings-test-secret',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
                 'ALLOWED_HOSTS': 'example.com',
             },
             'import musicplayer.settings as settings; print(settings.DEBUG)',
@@ -629,7 +640,7 @@ class SettingsConfigurationTests(TestCase):
         result = self._settings_probe(
             {
                 'DEBUG': 'False',
-                'SECRET_KEY': 'settings-test-secret',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
                 'ALLOWED_HOSTS': ' example.com, www.example.com ,,127.0.0.1 ',
             },
             'import musicplayer.settings as settings; print(settings.ALLOWED_HOSTS)',
@@ -642,21 +653,21 @@ class SettingsConfigurationTests(TestCase):
         result = self._settings_probe(
             {
                 'DEBUG': 'False',
-                'SECRET_KEY': 'settings-test-secret',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
                 'ALLOWED_HOSTS': 'example.com',
-                'CSRF_TRUSTED_ORIGINS': ' https://example.com, http://localhost:8000 ',
+                'CSRF_TRUSTED_ORIGINS': ' https://example.com, https://www.example.com ',
             },
             'import musicplayer.settings as settings; print(settings.CSRF_TRUSTED_ORIGINS)',
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("['https://example.com', 'http://localhost:8000']", result.stdout)
+        self.assertIn("['https://example.com', 'https://www.example.com']", result.stdout)
 
     def test_invalid_csrf_trusted_origin_is_rejected(self):
         result = self._settings_probe(
             {
                 'DEBUG': 'False',
-                'SECRET_KEY': 'settings-test-secret',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
                 'ALLOWED_HOSTS': 'example.com',
                 'CSRF_TRUSTED_ORIGINS': 'example.com',
             }
@@ -678,12 +689,196 @@ class SettingsConfigurationTests(TestCase):
     def test_production_like_configuration_rejects_missing_allowed_hosts(self):
         result = self._settings_probe({
             'DEBUG': 'False',
-            'SECRET_KEY': 'settings-test-secret',
+            'SECRET_KEY': PRODUCTION_TEST_SECRET,
             'ALLOWED_HOSTS': '',
         })
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('ALLOWED_HOSTS must be set when DEBUG is False', result.stderr)
+
+    def test_secure_production_defaults(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+            },
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.SESSION_COOKIE_SECURE); '
+                'print(settings.CSRF_COOKIE_SECURE); '
+                'print(settings.SECURE_HSTS_SECONDS); '
+                'print(settings.SECURE_SSL_REDIRECT); '
+                'print(settings.SECURE_CONTENT_TYPE_NOSNIFF); '
+                'print(settings.SECURE_REFERRER_POLICY); '
+                'print(settings.X_FRAME_OPTIONS)'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('True\nTrue\n0\nFalse\nTrue\nstrict-origin-when-cross-origin\nDENY', result.stdout)
+
+    def test_ssl_redirect_parsing_accepts_true(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'SECURE_SSL_REDIRECT': 'True',
+            },
+            'import musicplayer.settings as settings; print(settings.SECURE_SSL_REDIRECT)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('True', result.stdout)
+
+    def test_session_cookie_secure_parsing_accepts_false_override(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'SESSION_COOKIE_SECURE': 'False',
+            },
+            'import musicplayer.settings as settings; print(settings.SESSION_COOKIE_SECURE)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('False', result.stdout)
+
+    def test_csrf_cookie_secure_parsing_accepts_false_override(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'CSRF_COOKIE_SECURE': 'False',
+            },
+            'import musicplayer.settings as settings; print(settings.CSRF_COOKIE_SECURE)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('False', result.stdout)
+
+    def test_hsts_seconds_parsing_accepts_positive_integer(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'SECURE_HSTS_SECONDS': '3600',
+            },
+            'import musicplayer.settings as settings; print(settings.SECURE_HSTS_SECONDS)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('3600', result.stdout)
+
+    def test_negative_hsts_seconds_are_rejected(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': PRODUCTION_TEST_SECRET,
+            'ALLOWED_HOSTS': 'example.com',
+            'SECURE_HSTS_SECONDS': '-1',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECURE_HSTS_SECONDS must be a non-negative integer', result.stderr)
+
+    def test_hsts_preload_requires_positive_hsts_seconds(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': PRODUCTION_TEST_SECRET,
+            'ALLOWED_HOSTS': 'example.com',
+            'SECURE_HSTS_PRELOAD': 'True',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECURE_HSTS_PRELOAD requires SECURE_HSTS_SECONDS greater than 0', result.stderr)
+
+    def test_hsts_include_subdomains_requires_positive_hsts_seconds(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': PRODUCTION_TEST_SECRET,
+            'ALLOWED_HOSTS': 'example.com',
+            'SECURE_HSTS_INCLUDE_SUBDOMAINS': 'True',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECURE_HSTS_INCLUDE_SUBDOMAINS requires SECURE_HSTS_SECONDS greater than 0', result.stderr)
+
+    def test_proxy_header_trust_requires_explicit_opt_in(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'TRUST_X_FORWARDED_PROTO': 'True',
+            },
+            'import musicplayer.settings as settings; print(settings.SECURE_PROXY_SSL_HEADER)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("('HTTP_X_FORWARDED_PROTO', 'https')", result.stdout)
+
+    def test_proxy_header_is_not_trusted_by_default(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+            },
+            'import musicplayer.settings as settings; print(hasattr(settings, "SECURE_PROXY_SSL_HEADER"))',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('False', result.stdout)
+
+    def test_production_rejects_local_fallback_secret(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': 'sonica-local-development-secret-key',
+            'ALLOWED_HOSTS': 'example.com',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECRET_KEY must not use the local development fallback', result.stderr)
+
+    def test_production_rejects_short_secret(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': 'short-secret',
+            'ALLOWED_HOSTS': 'example.com',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECRET_KEY must be at least 50 characters', result.stderr)
+
+    def test_production_rejects_wildcard_allowed_hosts(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': PRODUCTION_TEST_SECRET,
+            'ALLOWED_HOSTS': '*',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('ALLOWED_HOSTS must not contain "*"', result.stderr)
+
+    def test_production_rejects_non_https_csrf_origin(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': PRODUCTION_TEST_SECRET,
+            'ALLOWED_HOSTS': 'example.com',
+            'CSRF_TRUSTED_ORIGINS': 'http://example.com',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('CSRF_TRUSTED_ORIGINS must use https:// origins', result.stderr)
+
+    def test_static_root_differs_from_source_static_directories(self):
+        settings_module = import_module('musicplayer.settings')
+
+        self.assertNotIn(settings_module.STATIC_ROOT, settings_module.STATICFILES_DIRS)
 
     def test_local_development_defaults_remain_usable(self):
         result = self._settings_probe(
@@ -712,6 +907,61 @@ class SettingsConfigurationTests(TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('True', result.stdout)
+
+    def test_deployment_checks_pass_with_valid_production_like_environment(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'CSRF_TRUSTED_ORIGINS': 'https://example.com',
+                'SECURE_SSL_REDIRECT': 'True',
+                'SESSION_COOKIE_SECURE': 'True',
+                'CSRF_COOKIE_SECURE': 'True',
+                'SECURE_HSTS_SECONDS': '3600',
+                'SECURE_HSTS_INCLUDE_SUBDOMAINS': 'True',
+                'SECURE_HSTS_PRELOAD': 'True',
+            },
+            (
+                'import django; django.setup(); '
+                'from django.core.management import call_command; '
+                'call_command("check", "--deploy")'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('System check identified no issues', result.stdout)
+
+    @override_settings(
+        DEBUG=False,
+        ROOT_URLCONF=__name__,
+        ALLOWED_HOSTS=['testserver'],
+        SECRET_KEY=PRODUCTION_TEST_SECRET,
+    )
+    def test_debug_false_404_does_not_expose_traceback(self):
+        response = self.client.get('/missing-production-page/')
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn('Traceback', content)
+        self.assertNotIn(PRODUCTION_TEST_SECRET, content)
+
+    @override_settings(
+        DEBUG=False,
+        ROOT_URLCONF=__name__,
+        ALLOWED_HOSTS=['testserver'],
+        SECRET_KEY=PRODUCTION_TEST_SECRET,
+    )
+    def test_debug_false_500_does_not_expose_exception_details(self):
+        self.client.raise_request_exception = False
+
+        response = self.client.get('/settings-test-error/')
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 500)
+        self.assertNotIn('Traceback', content)
+        self.assertNotIn('sensitive production exception text', content)
+        self.assertNotIn(PRODUCTION_TEST_SECRET, content)
 
     def test_removed_dependency_settings_are_not_active(self):
         settings_module = import_module('musicplayer.settings')
