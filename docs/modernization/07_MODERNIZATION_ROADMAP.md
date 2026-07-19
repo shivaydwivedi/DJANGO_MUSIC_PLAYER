@@ -17,6 +17,8 @@ Branch: `modernization/django-compat-prep`
 
 Branch: `modernization/dependency-cleanup`
 
+- Status: complete on `modernization/dependency-cleanup`; `requirements.txt`
+  is now the canonical Django 5.2 runtime file.
 - Remove unused packages only after confirming they are not imported.
 - Separate direct requirements from transitive dependencies.
 - Add a repeatable dependency resolution process.

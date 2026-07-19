@@ -6,7 +6,8 @@
 - Python version: 3.12.3.
 - Django version: 5.2.16.
 - django-allauth version: 65.18.0.
-- Pillow version: 11.3.0.
+- Upgrade-phase Pillow version: 11.3.0; this was removed in the later
+  dependency-cleanup phase.
 
 This is now the supported local framework/runtime baseline. The older `.venv`,
 `.venv-django32`, and `.venv-django42` environments remain rollback/reference
@@ -14,7 +15,13 @@ evidence only.
 
 ## Direct Dependencies
 
-Created `requirements-django52.txt` as the final direct-dependency file.
+Created `requirements-django52.txt` as the Django 5.2 upgrade-phase
+direct-dependency file. The later dependency-cleanup phase superseded it and
+made `requirements.txt` the canonical supported runtime file.
+
+The table below is retained as upgrade-phase evidence, not as the current
+canonical dependency set. See `14_DEPENDENCY_CLEANUP.md` for the final
+post-cleanup requirements.
 
 | Dependency | Version | Rationale |
 | --- | ---: | --- |
@@ -206,7 +213,8 @@ zero, seeded twice, tested, smoke-tested, and removed.
 
 ## Rollback Instructions
 
-1. Remove `requirements-django52.txt`.
+1. Restore the previous Django 5.2 dependency file if rolling back only to the
+   pre-cleanup upgrade branch.
 2. Restore the previous `authentication.compat` fallback if returning to a
    pre-5.2 compatibility branch.
 3. Restore README setup commands to the selected older runtime if rolling back.

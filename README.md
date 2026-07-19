@@ -56,7 +56,7 @@ Create and activate a Python 3.12 virtual environment, then install dependencies
 
 ```powershell
 py -3.12 -m venv .venv-django52
-.\.venv-django52\Scripts\python.exe -m pip install -r requirements-django52.txt
+.\.venv-django52\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 Create a local environment file:
