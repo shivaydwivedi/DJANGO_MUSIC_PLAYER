@@ -36,6 +36,9 @@ Branch: `modernization/settings-hardening`
 
 Branch: `modernization/django-upgrade`
 
+- Status: Django 3.2 intermediate upgrade complete on
+  `modernization/django-32-upgrade`; the final Django runtime upgrade is not
+  complete.
 - Upgrade through supported Django versions incrementally.
 - Update allauth and related dependencies in lockstep.
 - Run migrations and template tests at each step.
