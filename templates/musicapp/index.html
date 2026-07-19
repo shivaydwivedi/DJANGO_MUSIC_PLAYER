@@ -8,7 +8,7 @@
   <section class="page-hero" aria-labelledby="home-title">
     <div>
       <p class="section-kicker">Music library</p>
-      <h1 id="home-title">GALVANIC</h1>
+      <h1 id="home-title">Sonica</h1>
       <p>Browse recent plays, discover the full catalog, and jump into Hindi and English collections.</p>
     </div>
 
@@ -102,7 +102,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state">No songs available yet.</div>
+  <div class="empty-state">The catalog has no songs yet.</div>
   {% endif %}
 
   {% if not query_search %}
@@ -137,7 +137,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state">No Hindi songs available yet.</div>
+  <div class="empty-state">The catalog has no Hindi songs yet.</div>
   {% endif %}
 
   <header class="section-heading">
@@ -171,7 +171,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state">No English songs available yet.</div>
+  <div class="empty-state">The catalog has no English songs yet.</div>
   {% endif %}
   {% endif %}
 </div>

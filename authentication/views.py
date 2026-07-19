@@ -3,10 +3,18 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.http import require_POST
 from django.utils.http import is_safe_url
+from allauth.socialaccount.models import SocialApp
 from .forms import UserLoginForm, RegistrationForm
 
 
 # Create your views here.
+def _is_google_auth_configured():
+    return (
+        settings.ENABLE_GOOGLE_AUTH and
+        SocialApp.objects.filter(provider='google').exists()
+    )
+
+
 def _get_safe_redirect_url(request):
     redirect_to = request.POST.get('next') or request.GET.get('next')
     if redirect_to and is_safe_url(
@@ -28,6 +36,7 @@ def login_request(request):
         'form': form,
         'title': title,
         'next': next_url,
+        'google_auth_configured': _is_google_auth_configured(),
     }
     if form.is_valid():
         username = form.cleaned_data.get('username')
@@ -50,7 +59,11 @@ def signup_request(request):
     else:
         form = RegistrationForm()
 
-    context = {'form': form, 'title': title}
+    context = {
+        'form': form,
+        'title': title,
+        'google_auth_configured': _is_google_auth_configured(),
+    }
     return render(request, 'authentication/signup.html', context=context)
 
 

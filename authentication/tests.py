@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from musicapp.models import Favourite, Playlist, Recent, Song
@@ -89,6 +89,21 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response['Location'], reverse('index'))
         self.assertTrue(get_user(self.client).is_authenticated)
 
+    def test_login_page_hides_google_auth_when_unconfigured(self):
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Sign in to Sonica')
+        self.assertContains(response, 'Log In')
+        self.assertNotContains(response, 'Sign in with Google')
+
+    @override_settings(ENABLE_GOOGLE_AUTH=True)
+    def test_login_page_does_not_render_google_auth_without_social_app(self):
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Sign in with Google')
+
     def test_invalid_login_does_not_authenticate(self):
         user = self._create_user()
 
@@ -99,6 +114,22 @@ class AuthenticationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(get_user(self.client).is_authenticated)
+        self.assertContains(response, 'This user does not exist!')
+
+    def test_signup_page_renders_local_form_without_google_auth(self):
+        response = self.client.get(reverse('signup'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Create your Sonica account')
+        self.assertContains(response, 'Sign Up')
+        self.assertNotContains(response, 'Sign up with Google')
+
+    @override_settings(ENABLE_GOOGLE_AUTH=True)
+    def test_signup_page_does_not_render_google_auth_without_social_app(self):
+        response = self.client.get(reverse('signup'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Sign up with Google')
 
     def test_valid_local_next_redirect_is_honored(self):
         user = self._create_user()

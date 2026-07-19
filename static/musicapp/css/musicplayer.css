@@ -8,8 +8,11 @@
   --color-text: #f4f7fb;
   --color-text-secondary: #b8c2cf;
   --color-text-muted: #7e8b9b;
-  --color-accent: #33d6a6;
-  --color-accent-strong: #20b88d;
+  --color-accent: #ff5a66;
+  --color-accent-strong: #e43745;
+  --color-accent-subtle: rgba(255, 90, 102, 0.14);
+  --color-accent-focus: rgba(255, 90, 102, 0.32);
+  --color-accent-contrast: #1b0508;
   --color-accent-secondary: #ff7a59;
   --color-success: #3ddc97;
   --color-danger: #ff5f6d;
@@ -45,7 +48,7 @@ body {
   margin: 0;
   padding-bottom: calc(var(--player-height) + var(--space-6));
   background:
-    radial-gradient(circle at top left, rgba(51, 214, 166, 0.1), transparent 32rem),
+    radial-gradient(circle at top left, var(--color-accent-subtle), transparent 32rem),
     linear-gradient(135deg, var(--color-bg), #0d1118 48%, #10151d);
   color: var(--color-text);
   font-family: "Open Sans", "Segoe UI", Arial, sans-serif;
@@ -57,7 +60,7 @@ a {
 }
 
 a:hover {
-  color: #7be8c9;
+  color: #ff9aa2;
   text-decoration: none;
 }
 
@@ -69,13 +72,13 @@ textarea:focus-visible,
 .btn:focus-visible,
 .form-control:focus-visible,
 .custom-select:focus-visible {
-  box-shadow: 0 0 0 0.2rem rgba(51, 214, 166, 0.26) !important;
+  box-shadow: 0 0 0 0.2rem var(--color-accent-focus) !important;
   outline: 0;
 }
 
 .app-body.bg-light {
   background:
-    radial-gradient(circle at top left, rgba(51, 214, 166, 0.1), transparent 32rem),
+    radial-gradient(circle at top left, var(--color-accent-subtle), transparent 32rem),
     linear-gradient(135deg, var(--color-bg), #0d1118 48%, #10151d) !important;
   color: var(--color-text);
 }
@@ -153,7 +156,7 @@ textarea:focus-visible,
   margin-bottom: var(--space-6);
   padding: var(--space-6);
   background:
-    linear-gradient(135deg, rgba(51, 214, 166, 0.16), rgba(255, 122, 89, 0.08)),
+    linear-gradient(135deg, rgba(255, 90, 102, 0.18), rgba(255, 170, 94, 0.08)),
     var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -206,6 +209,14 @@ textarea:focus-visible,
 
 .filter-row-simple {
   grid-template-columns: minmax(180px, 1fr) auto;
+}
+
+.page-hero .filter-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.page-hero .filter-row .btn {
+  grid-column: 1 / -1;
 }
 
 .form-field {
@@ -268,14 +279,14 @@ hr {
 .bg-primary {
   background-color: var(--color-accent-strong) !important;
   border-color: var(--color-accent-strong) !important;
-  color: #04110d !important;
+  color: var(--color-accent-contrast) !important;
 }
 
 .btn-primary:hover,
 .btn-primary:active {
   background-color: var(--color-accent) !important;
   border-color: var(--color-accent) !important;
-  color: #03100c !important;
+  color: var(--color-accent-contrast) !important;
 }
 
 .btn-success {
@@ -332,7 +343,7 @@ hr {
 .btn[aria-current="page"] {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #03100c !important;
+  color: var(--color-accent-contrast) !important;
 }
 
 .dropdown-menu {
@@ -348,7 +359,7 @@ hr {
 
 .dropdown-item:hover,
 .dropdown-item:focus {
-  background: rgba(51, 214, 166, 0.12);
+  background: var(--color-accent-subtle);
   color: var(--color-text);
 }
 
@@ -410,7 +421,7 @@ hr {
 }
 
 .table-hover tbody tr:hover {
-  background-color: rgba(51, 214, 166, 0.08);
+  background-color: var(--color-accent-subtle);
   color: var(--color-text);
 }
 
@@ -437,12 +448,12 @@ hr {
 
 .song-card:hover {
   color: var(--color-text);
-  border-color: rgba(51, 214, 166, 0.34);
+  border-color: rgba(255, 90, 102, 0.38);
 }
 
 .song-card:focus-within {
-  border-color: rgba(51, 214, 166, 0.64);
-  box-shadow: 0 0 0 0.2rem rgba(51, 214, 166, 0.18), var(--shadow-card);
+  border-color: rgba(255, 90, 102, 0.68);
+  box-shadow: 0 0 0 0.2rem rgba(255, 90, 102, 0.2), var(--shadow-card);
 }
 
 .song-card-cover {
@@ -476,7 +487,7 @@ hr {
   color: var(--color-text-muted);
   text-align: center;
   background:
-    linear-gradient(135deg, rgba(51, 214, 166, 0.12), rgba(255, 122, 89, 0.1)),
+    linear-gradient(135deg, rgba(255, 90, 102, 0.14), rgba(255, 170, 94, 0.1)),
     var(--color-surface-elevated);
 }
 
@@ -579,7 +590,7 @@ hr {
 .collection-card:hover,
 .collection-card:focus {
   color: var(--color-text);
-  border-color: rgba(51, 214, 166, 0.42);
+  border-color: rgba(255, 90, 102, 0.46);
   transform: translateY(-2px);
 }
 
@@ -629,7 +640,7 @@ hr {
   color: var(--color-text-muted);
   text-align: center;
   background:
-    linear-gradient(135deg, rgba(51, 214, 166, 0.14), rgba(255, 122, 89, 0.1)),
+    linear-gradient(135deg, rgba(255, 90, 102, 0.16), rgba(255, 170, 94, 0.1)),
     var(--color-surface-elevated);
 }
 
@@ -780,7 +791,7 @@ hr {
 .dashboard-card:hover,
 .dashboard-card:focus {
   color: var(--color-text);
-  border-color: rgba(51, 214, 166, 0.42);
+  border-color: rgba(255, 90, 102, 0.46);
   transform: translateY(-2px);
 }
 
