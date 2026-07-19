@@ -1,0 +1,11 @@
+# Final supported runtime for modernization/django-52-upgrade.
+# Keep this file to direct dependencies only; do not copy legacy transitive pins.
+Django==5.2.16
+django-allauth==65.18.0
+django-crispy-forms==1.14.0
+Pillow==11.3.0
+python-decouple==3.8
+requests-oauthlib==2.0.0
+python3-openid==3.2.0
+PyJWT==2.10.1
+cryptography==45.0.7

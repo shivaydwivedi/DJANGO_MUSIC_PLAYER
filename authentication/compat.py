@@ -1,7 +1,4 @@
-try:
-    from django.utils.http import url_has_allowed_host_and_scheme
-except ImportError:  # pragma: no cover - retained for older Django compatibility.
-    from django.utils.http import is_safe_url as url_has_allowed_host_and_scheme
+from django.utils.http import url_has_allowed_host_and_scheme
 
 
 def get_safe_redirect_url(request):

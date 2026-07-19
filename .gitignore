@@ -29,3 +29,5 @@ __pycache__/
 .venv-django32/
 
 .venv-django42/
+
+.venv-django52/

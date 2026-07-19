@@ -43,8 +43,8 @@ Recommended captures:
 
 ## Stack
 
-- Python 3.8.10
-- Django 3.0.8
+- Python 3.12.3
+- Django 5.2 LTS
 - SQLite for local development
 - Bootstrap 4
 - Font Awesome 4
@@ -52,11 +52,11 @@ Recommended captures:
 
 ## Local Setup
 
-Create and activate a Python 3.8 virtual environment, then install dependencies:
+Create and activate a Python 3.12 virtual environment, then install dependencies:
 
 ```powershell
-py -3.8 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+py -3.12 -m venv .venv-django52
+.\.venv-django52\Scripts\python.exe -m pip install -r requirements-django52.txt
 ```
 
 Create a local environment file:
@@ -76,14 +76,14 @@ ENABLE_GOOGLE_AUTH=False
 Apply migrations and create an admin user:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py migrate
-.\.venv\Scripts\python.exe manage.py createsuperuser
+.\.venv-django52\Scripts\python.exe manage.py migrate
+.\.venv-django52\Scripts\python.exe manage.py createsuperuser
 ```
 
 Run the development server:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py runserver
+.\.venv-django52\Scripts\python.exe manage.py runserver
 ```
 
 Open `http://127.0.0.1:8000/`.
@@ -95,7 +95,7 @@ The original music library is not included. Add demo songs through Django admin 
 For a repeatable local demo catalog, run:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py seed_demo_data
+.\.venv-django52\Scripts\python.exe manage.py seed_demo_data
 ```
 
 This creates eight fictional Sonica demo songs with Hindi and English metadata. It does not create users, download files, assign media paths, or add copyrighted songs. Running it repeatedly is safe and does not duplicate rows.
@@ -103,7 +103,7 @@ This creates eight fictional Sonica demo songs with Hindi and English metadata. 
 To remove only rows created by the demo command:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py seed_demo_data --clear
+.\.venv-django52\Scripts\python.exe manage.py seed_demo_data --clear
 ```
 
 Do not commit `db.sqlite3`, uploaded media, secrets, or copyrighted assets. The application includes fallbacks for recovered rows that have missing cover or audio fields.
@@ -119,25 +119,25 @@ Google authentication remains installed through Django Allauth but is disabled i
 Run Django checks:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py check
-.\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
+.\.venv-django52\Scripts\python.exe manage.py check
+.\.venv-django52\Scripts\python.exe manage.py makemigrations --check --dry-run
 ```
 
 Run the automated tests:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py test
+.\.venv-django52\Scripts\python.exe manage.py test
 ```
 
 Run the recovery smoke harness:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py recovery_smoke_test
+.\.venv-django52\Scripts\python.exe manage.py recovery_smoke_test
 ```
 
 Expected recovery baseline:
 
-- 64 automated tests passing.
+- 97 automated tests passing.
 - 27 smoke checks passing.
 - Smoke result reports overall `PASS`.
 
@@ -165,7 +165,9 @@ recovery_smoke_report.*  Local smoke output, not committed
 
 ## Current Limitations
 
-- This is a Django 3.0.8 recovery baseline, not a dependency modernization branch.
+- The supported local runtime is Python 3.12.3 with Django 5.2 LTS. Earlier
+  recovery and intermediate upgrade environments are retained only as rollback
+  and audit evidence.
 - The playlist model stores playlist membership rows. A truly empty named playlist cannot exist under that model; when the final song is removed, no row remains and the playlist route returns 404.
 - Uploaded media and the local SQLite database are intentionally excluded from version control.
 - Production deployment hardening is outside this release QA branch.
