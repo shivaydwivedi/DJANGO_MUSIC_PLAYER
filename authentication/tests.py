@@ -65,6 +65,7 @@ class AuthenticationFlowTests(TestCase):
     def test_existing_protected_pages_still_require_login(self):
         song = self._create_song()
         protected_urls = [
+            reverse('profile'),
             reverse('favourite'),
             reverse('playlist'),
             reverse('playlist_songs', args=['Road Trip']),
@@ -76,6 +77,12 @@ class AuthenticationFlowTests(TestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 302)
                 self.assertIn(reverse('login'), response['Location'])
+
+    def test_anonymous_profile_redirects_to_login(self):
+        response = self.client.get(reverse('profile'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('login'), response['Location'])
 
     def test_valid_login_succeeds_and_redirects_to_index(self):
         user = self._create_user()
@@ -96,6 +103,7 @@ class AuthenticationFlowTests(TestCase):
         self.assertContains(response, 'Sign in to Sonica')
         self.assertContains(response, 'Log In')
         self.assertNotContains(response, 'Sign in with Google')
+        self.assertNotContains(response, 'Profile')
 
     @override_settings(ENABLE_GOOGLE_AUTH=True)
     def test_login_page_does_not_render_google_auth_without_social_app(self):
@@ -227,6 +235,165 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response['Location'], reverse('index'))
         self.assertFalse(get_user(self.client).is_authenticated)
 
+    def test_profile_returns_200_and_displays_current_user_identity(self):
+        user = self._create_user(username='profile-listener', email='profile@example.com')
+        self.client.force_login(user)
+        User.objects.filter(pk=user.pk).update(last_login=None)
+
+        response = self.client.get(reverse('profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'profile-listener')
+        self.assertContains(response, 'profile@example.com')
+        self.assertContains(response, 'Sonica account')
+        self.assertContains(response, 'No login recorded yet')
+        self.assertNotContains(response, 'password')
+
+    def test_profile_handles_missing_email(self):
+        user = self._create_user(username='missing-email', email='')
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No email added')
+
+    def test_profile_does_not_expose_another_users_data(self):
+        owner = self._create_user(username='owner', email='owner@example.com')
+        other_user = self._create_user(username='other-profile', email='other@example.com')
+        song = self._create_song(name='Other User Recent Song')
+        Favourite.objects.create(user=other_user, song=song, is_fav=True)
+        Playlist.objects.create(user=other_user, song=song, playlist_name='Other Secret Mix')
+        Recent.objects.create(user=other_user, song=song)
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'owner@example.com')
+        self.assertNotContains(response, 'other-profile')
+        self.assertNotContains(response, 'other@example.com')
+        self.assertNotContains(response, 'Other User Recent Song')
+        self.assertNotContains(response, 'Other Secret Mix')
+
+    def test_profile_statistics_are_user_scoped(self):
+        owner = self._create_user(username='stats-owner', email='stats-owner@example.com')
+        other_user = self._create_user(username='stats-other', email='stats-other@example.com')
+        first_song = self._create_song(name='Owner First Song')
+        second_song = self._create_song(name='Owner Second Song')
+        other_song = self._create_song(name='Other Stats Song')
+        Favourite.objects.create(user=owner, song=first_song, is_fav=True)
+        Favourite.objects.create(user=other_user, song=other_song, is_fav=True)
+        Playlist.objects.create(user=owner, song=first_song, playlist_name='Focus Mix')
+        Playlist.objects.create(user=owner, song=second_song, playlist_name='Focus Mix')
+        Playlist.objects.create(user=other_user, song=other_song, playlist_name='Other Mix')
+        Recent.objects.create(user=owner, song=first_song)
+        Recent.objects.create(user=owner, song=second_song)
+        Recent.objects.create(user=other_user, song=other_song)
+        self.client.force_login(owner)
+
+        response = self.client.get(reverse('profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Favourite songs')
+        self.assertContains(response, 'Distinct playlists')
+        self.assertContains(response, 'Recent plays')
+        self.assertContains(response, 'Playlist song saves')
+        self.assertContains(response, '<span class="profile-stat-value">1</span>', count=2, html=True)
+        self.assertContains(response, '<span class="profile-stat-value">2</span>', count=2, html=True)
+        self.assertNotContains(response, 'Other Stats Song')
+
+    def test_profile_recent_activity_is_newest_first_and_limited(self):
+        user = self._create_user(username='recent-owner', email='recent-owner@example.com')
+        songs = [self._create_song(name='Recent Song {0}'.format(index)) for index in range(7)]
+        for song in songs:
+            Recent.objects.create(user=user, song=song)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('profile'))
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Recent Song 6')
+        self.assertContains(response, 'Recent Song 2')
+        self.assertNotContains(response, 'Recent Song 1')
+        self.assertNotContains(response, 'Recent Song 0')
+        self.assertLess(content.index('Recent Song 6'), content.index('Recent Song 5'))
+        self.assertLess(content.index('Recent Song 5'), content.index('Recent Song 4'))
+
+    def test_profile_empty_statistics_render(self):
+        user = self._create_user(username='empty-profile', email='empty-profile@example.com')
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<span class="profile-stat-value">0</span>', count=4, html=True)
+        self.assertContains(response, 'No recent listening activity yet.')
+
+    def test_profile_update_succeeds_for_current_user(self):
+        user = self._create_user(username='old-name', email='old@example.com')
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('profile'), {
+            'username': '  new-name  ',
+            'email': '  new@example.com  ',
+        })
+        user.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('profile'))
+        self.assertEqual(user.username, 'new-name')
+        self.assertEqual(user.email, 'new@example.com')
+
+    def test_profile_update_rejects_duplicate_username(self):
+        self._create_user(username='taken-name', email='taken-name@example.com')
+        user = self._create_user(username='current-name', email='current@example.com')
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('profile'), {
+            'username': 'Taken-Name',
+            'email': 'current@example.com',
+        })
+        user.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A user with that username already exists.')
+        self.assertEqual(user.username, 'current-name')
+
+    def test_profile_update_rejects_duplicate_email(self):
+        self._create_user(username='email-owner', email='taken@example.com')
+        user = self._create_user(username='current-email', email='current@example.com')
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('profile'), {
+            'username': 'current-email',
+            'email': 'TAKEN@example.com',
+        })
+        user.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A user with that email already exists.')
+        self.assertEqual(user.email, 'current@example.com')
+
+    def test_profile_update_cannot_affect_another_user(self):
+        owner = self._create_user(username='owner-before', email='owner-before@example.com')
+        other_user = self._create_user(username='other-before', email='other-before@example.com')
+        self.client.force_login(owner)
+
+        response = self.client.post(reverse('profile'), {
+            'username': 'owner-after',
+            'email': 'owner-after@example.com',
+        })
+        owner.refresh_from_db()
+        other_user.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(owner.username, 'owner-after')
+        self.assertEqual(owner.email, 'owner-after@example.com')
+        self.assertEqual(other_user.username, 'other-before')
+        self.assertEqual(other_user.email, 'other-before@example.com')
+
     def test_anonymous_post_logout_is_safe(self):
         response = self.client.post(reverse('logout'))
 
@@ -242,6 +409,20 @@ class AuthenticationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 405)
         self.assertTrue(get_user(self.client).is_authenticated)
+
+    def test_navigation_shows_profile_only_when_authenticated(self):
+        anonymous_response = self.client.get(reverse('index'))
+        user = self._create_user(username='nav-user', email='nav@example.com')
+        self.client.force_login(user)
+        authenticated_response = self.client.get(reverse('index'))
+        profile_response = self.client.get(reverse('profile'))
+
+        self.assertEqual(anonymous_response.status_code, 200)
+        self.assertNotContains(anonymous_response, reverse('profile'))
+        self.assertEqual(authenticated_response.status_code, 200)
+        self.assertContains(authenticated_response, reverse('profile'))
+        self.assertEqual(profile_response.status_code, 200)
+        self.assertContains(profile_response, 'aria-current="page"')
 
     def test_logout_ignores_external_next_redirect(self):
         user = self._create_user()

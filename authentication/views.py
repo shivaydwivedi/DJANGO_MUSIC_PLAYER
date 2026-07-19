@@ -1,10 +1,13 @@
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.http import require_POST
 from django.utils.http import is_safe_url
 from allauth.socialaccount.models import SocialApp
-from .forms import UserLoginForm, RegistrationForm
+from musicapp.models import Favourite, Playlist, Recent
+from .forms import UserLoginForm, ProfileUpdateForm, RegistrationForm
 
 
 # Create your views here.
@@ -65,6 +68,35 @@ def signup_request(request):
         'google_auth_configured': _is_google_auth_configured(),
     }
     return render(request, 'authentication/signup.html', context=context)
+
+
+@login_required(login_url='login')
+def profile_request(request):
+    if request.method == "POST":
+        form = ProfileUpdateForm(request.POST, instance=request.user, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated.")
+            return redirect('profile')
+    else:
+        form = ProfileUpdateForm(instance=request.user, user=request.user)
+
+    user = request.user
+    recent_activity = Recent.objects.filter(user=user).select_related('song').order_by('-id')[:5]
+    playlist_names = Playlist.objects.filter(user=user).values('playlist_name').distinct()
+    username = user.username.strip()
+    initials = ''.join(part[0] for part in username.split()[:2]).upper() or username[:1].upper() or 'S'
+
+    context = {
+        'form': form,
+        'initials': initials[:2],
+        'favourite_count': Favourite.objects.filter(user=user, is_fav=True).count(),
+        'playlist_count': playlist_names.count(),
+        'recent_count': Recent.objects.filter(user=user).count(),
+        'playlist_row_count': Playlist.objects.filter(user=user).count(),
+        'recent_activity': recent_activity,
+    }
+    return render(request, 'authentication/profile.html', context=context)
 
 
 @require_POST
