@@ -5,8 +5,9 @@ from io import StringIO
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.db import IntegrityError, transaction
-from django.test import TestCase, override_settings
+from django.db import IntegrityError, connection, transaction
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from musicapp.management.commands.seed_demo_data import DEMO_ALBUM, DEMO_SONGS
@@ -867,3 +868,134 @@ class PlaylistSchemaFoundationTests(TestCase):
             Playlist.objects.filter(user=user, song=song, playlist_name='Legacy Mix').count(),
             2,
         )
+
+
+class PlaylistDataMigrationTests(TransactionTestCase):
+    migrate_from = [('musicapp', '0006_playlistcontainer_playlistsong_and_more')]
+    migrate_to = [('musicapp', '0007_backfill_normalized_playlist_data')]
+
+    def setUp(self):
+        super().setUp()
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_from)
+        self.old_apps = self.executor.loader.project_state(self.migrate_from).apps
+
+    def tearDown(self):
+        self.executor.migrate(self.migrate_to)
+        super().tearDown()
+
+    def _create_song(self, SongModel, name):
+        return SongModel.objects.create(
+            name=name,
+            album='Migration Album',
+            language='English',
+            year=2026,
+            singer='Migration Singer',
+        )
+
+    def _migrate_forward(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_to)
+        return self.executor.loader.project_state(self.migrate_to).apps
+
+    def _migrate_backward(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate(self.migrate_from)
+        return self.executor.loader.project_state(self.migrate_from).apps
+
+    def test_forward_reverse_and_reapply_preserve_legacy_playlist_data(self):
+        UserModel = self.old_apps.get_model('auth', 'User')
+        SongModel = self.old_apps.get_model('musicapp', 'Song')
+        LegacyPlaylist = self.old_apps.get_model('musicapp', 'Playlist')
+        PlaylistContainerModel = self.old_apps.get_model('musicapp', 'PlaylistContainer')
+        PlaylistSongModel = self.old_apps.get_model('musicapp', 'PlaylistSong')
+
+        owner = UserModel.objects.create_user(username='migration-owner', password='secret-pass')
+        other_user = UserModel.objects.create_user(username='migration-other', password='secret-pass')
+        first_song = self._create_song(SongModel, 'Migration Song One')
+        second_song = self._create_song(SongModel, 'Migration Song Two')
+        unrelated_song = self._create_song(SongModel, 'Migration Song Three')
+
+        preexisting_container = PlaylistContainerModel.objects.create(user=owner, name='Existing')
+        preexisting_membership = PlaylistSongModel.objects.create(
+            playlist=preexisting_container,
+            song=first_song,
+        )
+        unrelated_container = PlaylistContainerModel.objects.create(user=owner, name='Unrelated Normalized')
+        unrelated_membership = PlaylistSongModel.objects.create(
+            playlist=unrelated_container,
+            song=unrelated_song,
+        )
+
+        LegacyPlaylist.objects.create(user=owner, playlist_name='Focus', song=first_song)
+        LegacyPlaylist.objects.create(user=owner, playlist_name='Focus', song=first_song)
+        LegacyPlaylist.objects.create(user=owner, playlist_name='Focus', song=second_song)
+        LegacyPlaylist.objects.create(user=owner, playlist_name='focus', song=first_song)
+        LegacyPlaylist.objects.create(user=owner, playlist_name=' Focus', song=first_song)
+        LegacyPlaylist.objects.create(user=owner, playlist_name='', song=first_song)
+        LegacyPlaylist.objects.create(user=other_user, playlist_name='Focus', song=first_song)
+        LegacyPlaylist.objects.create(user=owner, playlist_name='Existing', song=first_song)
+
+        legacy_rows_before = list(
+            LegacyPlaylist.objects
+            .values_list('user_id', 'playlist_name', 'song_id')
+            .order_by('id')
+        )
+
+        new_apps = self._migrate_forward()
+        NewLegacyPlaylist = new_apps.get_model('musicapp', 'Playlist')
+        NewPlaylistContainer = new_apps.get_model('musicapp', 'PlaylistContainer')
+        NewPlaylistSong = new_apps.get_model('musicapp', 'PlaylistSong')
+
+        self.assertEqual(
+            list(NewLegacyPlaylist.objects.values_list('user_id', 'playlist_name', 'song_id').order_by('id')),
+            legacy_rows_before,
+        )
+        self.assertEqual(NewPlaylistContainer.objects.filter(user_id=owner.id, name='Focus').count(), 1)
+        self.assertEqual(NewPlaylistContainer.objects.filter(user_id=owner.id, name='focus').count(), 1)
+        self.assertEqual(NewPlaylistContainer.objects.filter(user_id=owner.id, name=' Focus').count(), 1)
+        self.assertEqual(NewPlaylistContainer.objects.filter(user_id=owner.id, name='').count(), 1)
+        self.assertEqual(NewPlaylistContainer.objects.filter(user_id=other_user.id, name='Focus').count(), 1)
+        self.assertEqual(NewPlaylistContainer.objects.count(), 7)
+
+        owner_focus = NewPlaylistContainer.objects.get(user_id=owner.id, name='Focus')
+        other_focus = NewPlaylistContainer.objects.get(user_id=other_user.id, name='Focus')
+        existing = NewPlaylistContainer.objects.get(user_id=owner.id, name='Existing')
+        self.assertEqual(NewPlaylistSong.objects.filter(playlist=owner_focus).count(), 2)
+        self.assertEqual(NewPlaylistSong.objects.filter(playlist=other_focus).count(), 1)
+        self.assertEqual(NewPlaylistSong.objects.filter(playlist=existing, song_id=first_song.id).count(), 1)
+        self.assertEqual(NewPlaylistSong.objects.filter(playlist_id=preexisting_container.id).count(), 1)
+        self.assertEqual(NewPlaylistSong.objects.filter(playlist_id=unrelated_container.id).count(), 1)
+        self.assertEqual(NewPlaylistSong.objects.count(), 8)
+
+        old_apps_after_reverse = self._migrate_backward()
+        ReversedLegacyPlaylist = old_apps_after_reverse.get_model('musicapp', 'Playlist')
+        ReversedPlaylistContainer = old_apps_after_reverse.get_model('musicapp', 'PlaylistContainer')
+        ReversedPlaylistSong = old_apps_after_reverse.get_model('musicapp', 'PlaylistSong')
+
+        self.assertEqual(
+            list(ReversedLegacyPlaylist.objects.values_list('user_id', 'playlist_name', 'song_id').order_by('id')),
+            legacy_rows_before,
+        )
+        self.assertTrue(ReversedPlaylistContainer.objects.filter(id=preexisting_container.id).exists())
+        self.assertTrue(ReversedPlaylistContainer.objects.filter(id=unrelated_container.id).exists())
+        self.assertTrue(ReversedPlaylistSong.objects.filter(id=preexisting_membership.id).exists())
+        self.assertTrue(ReversedPlaylistSong.objects.filter(id=unrelated_membership.id).exists())
+        self.assertEqual(ReversedPlaylistContainer.objects.count(), 2)
+        self.assertEqual(ReversedPlaylistSong.objects.count(), 2)
+
+        reapplied_apps = self._migrate_forward()
+        ReappliedPlaylistContainer = reapplied_apps.get_model('musicapp', 'PlaylistContainer')
+        ReappliedPlaylistSong = reapplied_apps.get_model('musicapp', 'PlaylistSong')
+        self.assertEqual(ReappliedPlaylistContainer.objects.count(), 7)
+        self.assertEqual(ReappliedPlaylistSong.objects.count(), 8)
+
+    def test_forward_migration_handles_empty_legacy_table(self):
+        new_apps = self._migrate_forward()
+        NewLegacyPlaylist = new_apps.get_model('musicapp', 'Playlist')
+        NewPlaylistContainer = new_apps.get_model('musicapp', 'PlaylistContainer')
+        NewPlaylistSong = new_apps.get_model('musicapp', 'PlaylistSong')
+
+        self.assertEqual(NewLegacyPlaylist.objects.count(), 0)
+        self.assertEqual(NewPlaylistContainer.objects.count(), 0)
+        self.assertEqual(NewPlaylistSong.objects.count(), 0)
