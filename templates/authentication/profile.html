@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %} Sonica | Profile {% endblock title %}
+
+{% block body %}
+
+<div class="app-page profile-shell">
+  {% if messages %}
+  <div class="messages" aria-live="polite">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}" role="status">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <section class="profile-hero" aria-labelledby="profile-title">
+    <div class="profile-avatar" aria-hidden="true">{{ initials }}</div>
+    <div class="profile-identity">
+      <p class="section-kicker">Sonica account</p>
+      <h1 id="profile-title">{{ request.user.username }}</h1>
+      <p>Manage your public account identity and jump back into the collections you have built.</p>
+      <dl class="account-meta">
+        <div>
+          <dt>Email</dt>
+          <dd>{% if request.user.email %}{{ request.user.email }}{% else %}No email added{% endif %}</dd>
+        </div>
+        <div>
+          <dt>Joined</dt>
+          <dd>{% if request.user.date_joined %}{{ request.user.date_joined|date:"M j, Y" }}{% else %}Not available{% endif %}</dd>
+        </div>
+        <div>
+          <dt>Last login</dt>
+          <dd>{% if request.user.last_login %}{{ request.user.last_login|date:"M j, Y, g:i A" }}{% else %}No login recorded yet{% endif %}</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="profile-stats" aria-label="Collection statistics">
+    <div class="profile-stat-card">
+      <span class="profile-stat-value">{{ favourite_count }}</span>
+      <span class="profile-stat-label">Favourite songs</span>
+    </div>
+    <div class="profile-stat-card">
+      <span class="profile-stat-value">{{ playlist_count }}</span>
+      <span class="profile-stat-label">Distinct playlists</span>
+    </div>
+    <div class="profile-stat-card">
+      <span class="profile-stat-value">{{ recent_count }}</span>
+      <span class="profile-stat-label">Recent plays</span>
+    </div>
+    <div class="profile-stat-card">
+      <span class="profile-stat-value">{{ playlist_row_count }}</span>
+      <span class="profile-stat-label">Playlist song saves</span>
+    </div>
+  </section>
+
+  <div class="profile-layout">
+    <section class="profile-panel" aria-labelledby="profile-edit-title">
+      <h2 id="profile-edit-title">Account Details</h2>
+      <form method="post" class="profile-form" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="form-field">
+          <label for="{{ form.username.id_for_label }}">Username</label>
+          <input type="text" class="form-control" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default_if_none:'' }}" autocomplete="username"{% if form.username.errors %} aria-describedby="profile-username-errors"{% endif %}>
+          {% if form.username.errors %}
+          <div class="field-errors" id="profile-username-errors" role="alert">{{ form.username.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.email.id_for_label }}">Email</label>
+          <input type="email" class="form-control" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default_if_none:'' }}" autocomplete="email"{% if form.email.errors %} aria-describedby="profile-email-errors"{% endif %}>
+          {% if form.email.errors %}
+          <div class="field-errors" id="profile-email-errors" role="alert">{{ form.email.errors }}</div>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-primary" type="submit">Save Profile</button>
+      </form>
+    </section>
+
+    <section class="profile-panel profile-actions" aria-labelledby="profile-actions-title">
+      <h2 id="profile-actions-title">Account Actions</h2>
+      <a class="btn btn-ghost" href="{% url 'mymusic' %}">My Music</a>
+      <a class="btn btn-ghost" href="{% url 'favourite' %}">Favourites</a>
+      <a class="btn btn-ghost" href="{% url 'playlist' %}">Playlists</a>
+      <a class="btn btn-ghost" href="{% url 'recent' %}">Recent Songs</a>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button class="btn btn-danger" type="submit">Sign Out</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="profile-activity" aria-labelledby="profile-activity-title">
+    <header class="section-heading">
+      <div>
+        <p class="section-kicker">Activity</p>
+        <h2 class="section-title" id="profile-activity-title">Recent Listening</h2>
+        <p class="section-subtitle">Your newest saved recent-history rows, limited to the latest five.</p>
+      </div>
+      <a href="{% url 'recent' %}" class="btn btn-ghost">View all <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+    </header>
+
+    {% if recent_activity %}
+    <div class="song-grid">
+      {% for item in recent_activity %}
+      {% include 'musicapp/partials/song_card.html' with song=item.song play_url_name='play_recent_song' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No recent listening activity yet.</div>
+    {% endif %}
+  </section>
+</div>
+
+{% endblock body %}

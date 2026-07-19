@@ -48,6 +48,7 @@
             
             <div class="collapse navbar-collapse app-navbar-collapse justify-content-end" id="app-user-nav">
             {% if request.user.is_active %}
+            <a href="{% url 'profile' %}" class="btn btn-outline-light mt-2 mx-1 {% if request.resolver_match.url_name == 'profile' %}is-active{% endif %}"{% if request.resolver_match.url_name == 'profile' %} aria-current="page"{% endif %}>Profile</a>
             <h5 class="app-user-greeting mt-3 mx-2">Hi, {{ request.user.username }}</h5>
             <form method="post" action="{% url 'logout' %}" class="mt-2 mx-2">
                 {% csrf_token %}
