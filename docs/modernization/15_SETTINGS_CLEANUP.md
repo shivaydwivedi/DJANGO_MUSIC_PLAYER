@@ -99,3 +99,5 @@ No models or migrations are involved in this cleanup.
 
 Add production settings hardening for deployed environments while preserving the
 current local development defaults.
+
+Update: this follow-up was completed on `modernization/production-hardening`.
