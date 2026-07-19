@@ -38,8 +38,8 @@ Branch: `modernization/django-upgrade`
 
 - Status: Django 3.2 intermediate upgrade complete on
   `modernization/django-32-upgrade`; Django 4.2 intermediate upgrade complete
-  on `modernization/django-42-upgrade`; the final Django runtime upgrade is not
-  complete.
+  on `modernization/django-42-upgrade`; final Django 5.2 LTS runtime upgrade
+  complete on `modernization/django-52-upgrade`.
 - Upgrade through supported Django versions incrementally.
 - Update allauth and related dependencies in lockstep.
 - Run migrations and template tests at each step.
