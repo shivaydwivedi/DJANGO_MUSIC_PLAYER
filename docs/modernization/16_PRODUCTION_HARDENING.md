@@ -178,3 +178,5 @@ No models or migrations are involved.
 
 Create a platform-neutral deployment readiness plan for database, static files,
 uploaded media, and environment management without choosing a hosting provider.
+
+Update: this follow-up was completed on `modernization/deployment-readiness`.

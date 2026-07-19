@@ -4,3 +4,4 @@
 Django==5.2.16
 django-allauth[socialaccount]==65.18.0
 python-decouple==3.8
+waitress==3.0.2

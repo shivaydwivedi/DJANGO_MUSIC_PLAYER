@@ -103,6 +103,15 @@ Run the development server:
 
 Open `http://127.0.0.1:8000/`.
 
+For production-style WSGI startup after deployment preparation, Sonica uses
+Waitress:
+
+```powershell
+.\.venv-django52\Scripts\waitress-serve.exe --listen=0.0.0.0:8000 musicplayer.wsgi:application
+```
+
+Keep `runserver` for local development only.
+
 ## Demo Data And Media
 
 The original music library is not included. Add demo songs through Django admin using original, openly licensed, or otherwise authorized audio and cover art.
@@ -156,6 +165,15 @@ temporary environment values and do not record real secrets in repository files.
 Static files are ready for `collectstatic` through `STATIC_ROOT=staticfiles`.
 Django does not safely serve uploaded production media by itself; deployment
 media storage remains a later platform-specific task.
+
+Deployment readiness helpers:
+
+```powershell
+.\.venv-django52\Scripts\python.exe manage.py deployment_readiness_check
+```
+
+Operational probes are available at `/health/` and `/ready/`. Health only checks
+that Django is responding; readiness also checks database connectivity.
 
 Expected recovery baseline:
 
