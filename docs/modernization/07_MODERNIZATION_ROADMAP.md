@@ -82,6 +82,9 @@ Branch: `modernization/media-validation`
 
 Branch: `modernization/observability`
 
+- Status: platform-neutral deployment readiness complete on
+  `modernization/deployment-readiness`; provider-specific deployment remains
+  deferred.
 - Add logging configuration and release smoke reporting.
 - Add deployment health checks if needed.
 - Gate: logs visible locally and in the chosen deployment environment.
