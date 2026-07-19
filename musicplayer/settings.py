@@ -132,10 +132,6 @@ TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
-# Django 3.0 still honors USE_L10N. Keep current formatting behavior here and
-# remove this setting in the dedicated Django-upgrade phase.
-USE_L10N = True
-
 USE_TZ = True
 
 
