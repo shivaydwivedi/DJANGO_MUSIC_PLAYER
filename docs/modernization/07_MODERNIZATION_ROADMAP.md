@@ -64,6 +64,8 @@ Branch: `modernization/data-integrity`
 
 Branch: `modernization/playlist-containers`
 
+- Status: schema foundation complete on `modernization/playlist-schema`; data
+  migration and view/template cutover remain deferred.
 - Introduce a true playlist container model and membership table.
 - Preserve current playlist names and song memberships through a data migration.
 - Support empty playlists intentionally.

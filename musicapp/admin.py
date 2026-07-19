@@ -5,5 +5,7 @@ from .models import *
 
 admin.site.register(Song)
 admin.site.register(Playlist)
+admin.site.register(PlaylistContainer)
+admin.site.register(PlaylistSong)
 admin.site.register(Favourite)
 admin.site.register(Recent)

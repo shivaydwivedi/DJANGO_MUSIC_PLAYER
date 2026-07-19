@@ -5,7 +5,7 @@ from io import StringIO
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -15,7 +15,7 @@ from musicapp.management.commands.recovery_smoke_test import (
     run_smoke_checks,
 )
 
-from .models import Favourite, Playlist, Recent, Song
+from .models import Favourite, Playlist, PlaylistContainer, PlaylistSong, Recent, Song
 
 
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
@@ -789,3 +789,81 @@ class EmptyLibraryPageTests(TestCase):
 
         self.assertFalse(Song.objects.filter(album=DEMO_ALBUM).exists())
         self.assertTrue(Song.objects.filter(id=retained_song.id).exists())
+
+
+class PlaylistSchemaFoundationTests(TestCase):
+    def _create_song(self, name='Schema Test Song'):
+        return Song.objects.create(
+            name=name,
+            album='Schema Album',
+            language='English',
+            year=2026,
+            singer='Schema Singer',
+        )
+
+    def test_playlist_container_can_exist_without_songs(self):
+        user = User.objects.create_user(username='schema-listener', password='secret-pass')
+
+        playlist = PlaylistContainer.objects.create(user=user, name='Empty Future Mix')
+
+        self.assertEqual(playlist.user, user)
+        self.assertEqual(playlist.name, 'Empty Future Mix')
+        self.assertEqual(playlist.songs.count(), 0)
+        self.assertIsNotNone(playlist.created_at)
+        self.assertIsNotNone(playlist.updated_at)
+
+    def test_playlist_container_name_is_unique_per_user(self):
+        owner = User.objects.create_user(username='schema-owner', password='secret-pass')
+        other_user = User.objects.create_user(username='schema-other', password='secret-pass')
+        PlaylistContainer.objects.create(user=owner, name='Focus')
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PlaylistContainer.objects.create(user=owner, name='Focus')
+
+        PlaylistContainer.objects.create(user=other_user, name='Focus')
+        self.assertEqual(PlaylistContainer.objects.filter(name='Focus').count(), 2)
+
+    def test_playlist_song_membership_is_unique_per_container(self):
+        user = User.objects.create_user(username='schema-member', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Focus')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PlaylistSong.objects.create(playlist=playlist, song=song)
+
+        self.assertEqual(PlaylistSong.objects.filter(playlist=playlist, song=song).count(), 1)
+
+    def test_same_song_can_belong_to_different_playlist_containers(self):
+        user = User.objects.create_user(username='schema-cross-member', password='secret-pass')
+        song = self._create_song()
+        first_playlist = PlaylistContainer.objects.create(user=user, name='Morning')
+        second_playlist = PlaylistContainer.objects.create(user=user, name='Evening')
+
+        PlaylistSong.objects.create(playlist=first_playlist, song=song)
+        PlaylistSong.objects.create(playlist=second_playlist, song=song)
+
+        self.assertEqual(PlaylistSong.objects.filter(song=song).count(), 2)
+
+    def test_new_schema_does_not_backfill_or_change_legacy_playlist_rows(self):
+        user = User.objects.create_user(username='legacy-schema-owner', password='secret-pass')
+        song = self._create_song()
+        Playlist.objects.create(user=user, song=song, playlist_name='Legacy Mix')
+
+        self.assertEqual(Playlist.objects.count(), 1)
+        self.assertEqual(PlaylistContainer.objects.count(), 0)
+        self.assertEqual(PlaylistSong.objects.count(), 0)
+
+    def test_legacy_playlist_behavior_still_allows_empty_name_duplicates(self):
+        user = User.objects.create_user(username='legacy-duplicate-owner', password='secret-pass')
+        song = self._create_song()
+
+        Playlist.objects.create(user=user, song=song, playlist_name='Legacy Mix')
+        Playlist.objects.create(user=user, song=song, playlist_name='Legacy Mix')
+
+        self.assertEqual(
+            Playlist.objects.filter(user=user, song=song, playlist_name='Legacy Mix').count(),
+            2,
+        )
