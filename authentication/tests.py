@@ -589,7 +589,10 @@ class SettingsConfigurationTests(TestCase):
     def _settings_probe(self, extra_env, code='import musicplayer.settings; print("ok")'):
         env = os.environ.copy()
         env.update(extra_env)
-        env['PYTHONPATH'] = str(PROJECT_ROOT)
+        python_paths = [str(PROJECT_ROOT)]
+        if env.get('PYTHONPATH'):
+            python_paths.append(env['PYTHONPATH'])
+        env['PYTHONPATH'] = os.pathsep.join(python_paths)
         return subprocess.run(
             [sys.executable, '-c', code],
             cwd=str(PROJECT_ROOT),

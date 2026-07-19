@@ -150,3 +150,6 @@ Review data loss first if any later branch writes to `PlaylistContainer` or
 
 Add a copied-database legacy playlist data migration rehearsal that populates the
 new playlist container schema without switching runtime views yet.
+
+Update: this follow-up was completed on
+`modernization/playlist-data-migration`.
