@@ -70,8 +70,16 @@ Update `.env` for your machine:
 ```env
 SECRET_KEY=replace-with-a-long-random-secret-key
 DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1,[::1]
+CSRF_TRUSTED_ORIGINS=
 ENABLE_GOOGLE_AUTH=False
 ```
+
+The supported settings module is `musicplayer.settings`. `ALLOWED_HOSTS` and
+`CSRF_TRUSTED_ORIGINS` use comma-separated values; CSRF origins must include
+`http://` or `https://`. Local development uses safe defaults when `DEBUG=True`.
+For production-like runs with `DEBUG=False`, set a real `SECRET_KEY` and
+non-empty `ALLOWED_HOSTS`.
 
 Apply migrations and create an admin user:
 

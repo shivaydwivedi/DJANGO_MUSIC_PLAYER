@@ -1,5 +1,9 @@
 # Settings and Deployment Audit
 
+Update: `musicplayer/settings1/` was removed during
+`modernization/settings-cleanup`. The findings below are retained as historical
+audit evidence from before that cleanup.
+
 ## Active Settings Module
 
 `manage.py`, `wsgi.py`, and `asgi.py` default to `musicplayer.settings`.

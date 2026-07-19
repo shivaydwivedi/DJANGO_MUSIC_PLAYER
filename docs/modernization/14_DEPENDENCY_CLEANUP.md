@@ -174,8 +174,8 @@ future task.
 
 - Transitive versions are resolved by pip from package metadata rather than
   locked in a full lockfile.
-- The legacy `settings1/` package still references crispy/debug-toolbar in old
-  split settings and should be handled in the settings cleanup phase.
+- Legacy `settings1/` cleanup is handled by the follow-up settings cleanup
+  phase.
 - Social auth remains installed even though Google UI is hidden until explicitly
   configured.
 - No dependency vulnerability scan has been performed.
@@ -190,11 +190,6 @@ future task.
    this cleanup.
 4. Remove this report and revert README/roadmap updates.
 
-## Exact Next Branch
+## Follow-Up
 
-`modernization/settings-cleanup`
-
-## Exact Next Task
-
-Clean up and harden settings by quarantining or removing legacy `settings1/`
-modules and documenting the supported settings entry point.
+The next branch from this cleanup was `modernization/settings-cleanup`.
