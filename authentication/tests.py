@@ -1,9 +1,12 @@
 from django.contrib.auth import get_user
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import RequestFactory
 from django.test import TestCase, override_settings
-from django.urls import reverse
+from django.urls import get_resolver, reverse
+from importlib import import_module
 
+from .compat import get_safe_redirect_url
 from musicapp.models import Favourite, Playlist, Recent, Song
 
 
@@ -162,6 +165,85 @@ class AuthenticationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], reverse('index'))
+
+    def test_same_host_absolute_next_redirect_is_honored(self):
+        user = self._create_user()
+
+        response = self.client.post(reverse('login'), {
+            'username': user.username,
+            'password': 'secret-pass',
+            'next': 'http://testserver{0}'.format(reverse('mymusic')),
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], 'http://testserver{0}'.format(reverse('mymusic')))
+
+    def test_protocol_relative_external_next_redirect_is_rejected(self):
+        user = self._create_user()
+
+        response = self.client.post(reverse('login'), {
+            'username': user.username,
+            'password': 'secret-pass',
+            'next': '//example.invalid/steal',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('index'))
+
+    def test_malformed_next_redirect_is_rejected(self):
+        user = self._create_user()
+
+        response = self.client.post(reverse('login'), {
+            'username': user.username,
+            'password': 'secret-pass',
+            'next': 'http://[::1',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('index'))
+
+    def test_missing_next_redirect_uses_default(self):
+        user = self._create_user()
+
+        response = self.client.post(reverse('login'), {
+            'username': user.username,
+            'password': 'secret-pass',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('index'))
+
+    def test_secure_request_rejects_http_same_host_next_redirect(self):
+        user = self._create_user()
+
+        response = self.client.post(reverse('login'), {
+            'username': user.username,
+            'password': 'secret-pass',
+            'next': 'http://testserver{0}'.format(reverse('mymusic')),
+        }, secure=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('index'))
+
+    def test_redirect_compat_helper_accepts_relative_internal_url(self):
+        request = RequestFactory().get(reverse('login'), {'next': reverse('mymusic')})
+
+        self.assertEqual(get_safe_redirect_url(request), reverse('mymusic'))
+
+    def test_redirect_compat_helper_rejects_external_url(self):
+        request = RequestFactory().get(reverse('login'), {'next': 'https://example.invalid/steal'})
+
+        self.assertIsNone(get_safe_redirect_url(request))
+
+    def test_redirect_compat_helper_rejects_protocol_relative_external_url(self):
+        request = RequestFactory().get(reverse('login'), {'next': '//example.invalid/steal'})
+
+        self.assertIsNone(get_safe_redirect_url(request))
+
+    def test_redirect_compat_helper_rejects_malformed_url(self):
+        request = RequestFactory().get(reverse('login'), {'next': 'http://[::1'})
+
+        self.assertIsNone(get_safe_redirect_url(request))
 
     def test_login_get_does_not_mutate_database(self):
         before = User.objects.count()
@@ -447,6 +529,28 @@ class AuthenticationFlowTests(TestCase):
             with self.subTest(url=url):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 200)
+
+    def test_settings_module_imports_successfully(self):
+        settings_module = import_module('musicplayer.settings')
+
+        self.assertEqual(settings_module.ROOT_URLCONF, 'musicplayer.urls')
+        self.assertIn('allauth', settings_module.INSTALLED_APPS)
+
+    def test_project_url_configuration_imports_successfully(self):
+        resolver = get_resolver()
+
+        self.assertTrue(any(pattern.pattern._route == 'accounts/' for pattern in resolver.url_patterns))
+        self.assertTrue(any(pattern.pattern._route == 'authentication/' for pattern in resolver.url_patterns))
+
+    def test_allauth_urls_remain_mounted_at_accounts_only(self):
+        resolver = get_resolver()
+        allauth_mounts = [
+            pattern.pattern._route
+            for pattern in resolver.url_patterns
+            if getattr(getattr(pattern, 'urlconf_name', None), '__name__', None) == 'allauth.urls'
+        ]
+
+        self.assertEqual(allauth_mounts, ['accounts/'])
 
     def test_protected_page_does_not_expose_other_user_information(self):
         owner = self._create_user(username='owner', email='owner@example.com')
