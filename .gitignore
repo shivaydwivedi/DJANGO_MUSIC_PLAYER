@@ -24,3 +24,6 @@ private-permissions/
 # Python cache files
 __pycache__/
 *.py[cod]
+
+# Django upgrade environments
+.venv-django32/
