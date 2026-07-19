@@ -1,5 +1,8 @@
 # Django Compatibility Preparation
 
+Update: the legacy `musicplayer/settings1/` package discussed below was removed
+later during `modernization/settings-cleanup`.
+
 ## Current Runtime
 
 - Python: 3.8.10.
@@ -41,8 +44,8 @@ The helper:
   must not change date, number, or template formatting.
 - `SOCIALACCOUNT_QUERY_EMAIL` and current allauth provider settings remain
   unchanged until the allauth package is upgraded.
-- `settings1/` remains in place until the settings-modernization phase can
-  either delete it or replace it with a tested settings package.
+- `settings1/` remained in place during this compatibility-prep phase. It was
+  removed later during `modernization/settings-cleanup`.
 - Playback GET mutations, playlist model redesign, upload validators,
   PostgreSQL setup, dependency cleanup, and deployment hardening are explicitly
   out of scope.
@@ -87,10 +90,9 @@ Usage findings:
 - `production.py` contains placeholder `ALLOWED_HOSTS` and an empty PostgreSQL
   port.
 
-Decision: do not delete `settings1/` in this phase. It appears obsolete for the
-current runtime, but deletion should wait for the settings-modernization phase so
-the project can either remove it with documentation updates or replace it with a
-tested settings package.
+Decision in this phase: do not delete `settings1/`. It appeared obsolete for
+the current runtime, but deletion waited for the later settings-modernization
+phase. The package was removed during `modernization/settings-cleanup`.
 
 ## Import Audit
 

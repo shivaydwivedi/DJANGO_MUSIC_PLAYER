@@ -190,7 +190,6 @@ zero, seeded twice, tested, smoke-tested, and removed.
 
 - Production settings hardening.
 - Dependency cleanup and removal of unused packages.
-- Legacy `settings1/` cleanup.
 - Playlist container redesign.
 - Recent/history redesign decisions.
 - Playback GET mutation redesign.

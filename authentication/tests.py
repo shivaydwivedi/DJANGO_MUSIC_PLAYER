@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from django.contrib.auth import get_user
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -8,6 +13,9 @@ from importlib import import_module
 
 from .compat import get_safe_redirect_url
 from musicapp.models import Favourite, Playlist, Recent, Song
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class AuthenticationFlowTests(TestCase):
@@ -564,3 +572,153 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'Other Private Mix')
         self.assertNotContains(response, 'Private Playlist Song')
+
+
+class SettingsConfigurationTests(TestCase):
+    def _settings_probe(self, extra_env, code='import musicplayer.settings; print("ok")'):
+        env = os.environ.copy()
+        env.update(extra_env)
+        env['PYTHONPATH'] = str(PROJECT_ROOT)
+        return subprocess.run(
+            [sys.executable, '-c', code],
+            cwd=str(PROJECT_ROOT),
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+
+    def test_manage_wsgi_and_asgi_use_authoritative_settings_module(self):
+        expected = "DJANGO_SETTINGS_MODULE', 'musicplayer.settings'"
+
+        for path in [
+            PROJECT_ROOT / 'manage.py',
+            PROJECT_ROOT / 'musicplayer' / 'wsgi.py',
+            PROJECT_ROOT / 'musicplayer' / 'asgi.py',
+        ]:
+            with self.subTest(path=path.name):
+                self.assertIn(expected, path.read_text())
+
+    def test_authoritative_settings_module_imports_successfully(self):
+        settings_module = import_module('musicplayer.settings')
+
+        self.assertEqual(settings_module.ROOT_URLCONF, 'musicplayer.urls')
+        self.assertEqual(settings_module.WSGI_APPLICATION, 'musicplayer.wsgi.application')
+
+    def test_legacy_settings_package_is_absent(self):
+        self.assertFalse((PROJECT_ROOT / 'musicplayer' / 'settings1' / '__init__.py').exists())
+        self.assertFalse((PROJECT_ROOT / 'musicplayer' / 'settings1' / 'base.py').exists())
+        self.assertFalse((PROJECT_ROOT / 'musicplayer' / 'settings1' / 'developement.py').exists())
+        self.assertFalse((PROJECT_ROOT / 'musicplayer' / 'settings1' / 'production.py').exists())
+        with self.assertRaises(ModuleNotFoundError):
+            import_module('musicplayer.settings1')
+
+    def test_debug_flag_parsing_accepts_false(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': 'settings-test-secret',
+                'ALLOWED_HOSTS': 'example.com',
+            },
+            'import musicplayer.settings as settings; print(settings.DEBUG)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('False', result.stdout)
+
+    def test_allowed_hosts_parsing_trims_comma_separated_values(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': 'settings-test-secret',
+                'ALLOWED_HOSTS': ' example.com, www.example.com ,,127.0.0.1 ',
+            },
+            'import musicplayer.settings as settings; print(settings.ALLOWED_HOSTS)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("['example.com', 'www.example.com', '127.0.0.1']", result.stdout)
+
+    def test_csrf_trusted_origins_parsing_trims_absolute_origins(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': 'settings-test-secret',
+                'ALLOWED_HOSTS': 'example.com',
+                'CSRF_TRUSTED_ORIGINS': ' https://example.com, http://localhost:8000 ',
+            },
+            'import musicplayer.settings as settings; print(settings.CSRF_TRUSTED_ORIGINS)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("['https://example.com', 'http://localhost:8000']", result.stdout)
+
+    def test_invalid_csrf_trusted_origin_is_rejected(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': 'settings-test-secret',
+                'ALLOWED_HOSTS': 'example.com',
+                'CSRF_TRUSTED_ORIGINS': 'example.com',
+            }
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('CSRF_TRUSTED_ORIGINS values must be comma-separated', result.stderr)
+
+    def test_production_like_configuration_rejects_missing_secret_key(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': '',
+            'ALLOWED_HOSTS': 'example.com',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECRET_KEY must be set when DEBUG is False', result.stderr)
+
+    def test_production_like_configuration_rejects_missing_allowed_hosts(self):
+        result = self._settings_probe({
+            'DEBUG': 'False',
+            'SECRET_KEY': 'settings-test-secret',
+            'ALLOWED_HOSTS': '',
+        })
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('ALLOWED_HOSTS must be set when DEBUG is False', result.stderr)
+
+    def test_local_development_defaults_remain_usable(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'True',
+                'SECRET_KEY': 'settings-test-secret',
+                'ALLOWED_HOSTS': '',
+                'CSRF_TRUSTED_ORIGINS': '',
+            },
+            'import musicplayer.settings as settings; print(settings.DEBUG); print(settings.CSRF_TRUSTED_ORIGINS)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('True', result.stdout)
+        self.assertIn('[]', result.stdout)
+
+    def test_google_auth_flag_parsing_accepts_true(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'True',
+                'SECRET_KEY': 'settings-test-secret',
+                'ENABLE_GOOGLE_AUTH': 'True',
+            },
+            'import musicplayer.settings as settings; print(settings.ENABLE_GOOGLE_AUTH)',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('True', result.stdout)
+
+    def test_removed_dependency_settings_are_not_active(self):
+        settings_module = import_module('musicplayer.settings')
+        active_settings_text = (PROJECT_ROOT / 'musicplayer' / 'settings.py').read_text()
+
+        self.assertNotIn('crispy_forms', settings_module.INSTALLED_APPS)
+        self.assertNotIn('debug_toolbar', settings_module.INSTALLED_APPS)
+        self.assertFalse(hasattr(settings_module, 'CRISPY_TEMPLATE_PACK'))
+        self.assertNotIn('rest_framework', active_settings_text)
+        self.assertNotIn('django_redis', active_settings_text)
