@@ -45,9 +45,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     
-    # external
-    'crispy_forms',
-    
     # apps
     'authentication.apps.AuthenticationConfig',
     'musicapp.apps.MusicappConfig',
@@ -151,8 +148,6 @@ MEDIA_URL = '/media/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
-
-CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",

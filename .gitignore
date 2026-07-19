@@ -31,3 +31,5 @@ __pycache__/
 .venv-django42/
 
 .venv-django52/
+
+.venv-clean-install/
