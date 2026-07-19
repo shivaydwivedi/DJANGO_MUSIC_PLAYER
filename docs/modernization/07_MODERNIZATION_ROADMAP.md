@@ -1,0 +1,84 @@
+# Modernization Roadmap
+
+## Phase 1: Django Compatibility Prep
+
+Branch: `modernization/django-compat-prep`
+
+- Replace `is_safe_url` with `url_has_allowed_host_and_scheme`.
+- Remove `USE_L10N` where safe.
+- Audit allauth settings against the intended target version.
+- Keep Django 3.0.8 while making compatibility changes.
+- Gate: full test suite and smoke harness pass.
+
+## Phase 2: Dependency Cleanup
+
+Branch: `modernization/dependency-cleanup`
+
+- Remove unused packages only after confirming they are not imported.
+- Separate direct requirements from transitive dependencies.
+- Add a repeatable dependency resolution process.
+- Gate: clean environment install, full tests, smoke harness.
+
+## Phase 3: Settings Hardening
+
+Branch: `modernization/settings-hardening`
+
+- Make production settings explicit.
+- Add environment-driven allowed hosts, CSRF origins, secure cookies, and static
+  configuration.
+- Quarantine or remove legacy `settings1/` modules.
+- Gate: local and test settings still pass all checks.
+
+## Phase 4: Django Runtime Upgrade
+
+Branch: `modernization/django-upgrade`
+
+- Upgrade through supported Django versions incrementally.
+- Update allauth and related dependencies in lockstep.
+- Run migrations and template tests at each step.
+- Gate: tests, smoke harness, and manual browser QA.
+
+## Phase 5: Data Integrity Migration
+
+Branch: `modernization/data-integrity`
+
+- Add uniqueness constraints for favourites and temporary playlist membership if
+  the current model still exists.
+- Add indexes for user-scoped queries.
+- Add data cleanup migrations for duplicates before constraints.
+- Gate: duplicate detection, migration dry run, migration apply on copied data.
+
+## Phase 6: Playlist Model Redesign
+
+Branch: `modernization/playlist-containers`
+
+- Introduce a true playlist container model and membership table.
+- Preserve current playlist names and song memberships through a data migration.
+- Support empty playlists intentionally.
+- Gate: migration tests, authorization tests, browser QA.
+
+## Phase 7: Upload and Media Validation
+
+Branch: `modernization/media-validation`
+
+- Add file extension, size, and content validation.
+- Decide storage behavior for production.
+- Preserve missing-media fallbacks.
+- Gate: malicious/invalid upload tests and admin smoke tests.
+
+## Phase 8: Observability
+
+Branch: `modernization/observability`
+
+- Add logging configuration and release smoke reporting.
+- Add deployment health checks if needed.
+- Gate: logs visible locally and in the chosen deployment environment.
+
+## Phase 9: Frontend Certification
+
+Branch: `modernization/frontend-certification`
+
+- Browser-test Sonica's redesigned pages and player shell across desktop and
+  mobile sizes.
+- Verify media fallback states, authenticated navigation, and collection pages.
+- Gate: screenshot/manual QA evidence plus existing backend checks.
