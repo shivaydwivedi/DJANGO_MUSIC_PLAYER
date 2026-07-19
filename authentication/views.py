@@ -4,9 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.http import require_POST
-from django.utils.http import is_safe_url
 from allauth.socialaccount.models import SocialApp
 from musicapp.models import Favourite, Playlist, Recent
+from .compat import get_safe_redirect_url
 from .forms import UserLoginForm, ProfileUpdateForm, RegistrationForm
 
 
@@ -18,23 +18,13 @@ def _is_google_auth_configured():
     )
 
 
-def _get_safe_redirect_url(request):
-    redirect_to = request.POST.get('next') or request.GET.get('next')
-    if redirect_to and is_safe_url(
-            url=redirect_to,
-            allowed_hosts={request.get_host()},
-            require_https=request.is_secure()):
-        return redirect_to
-    return None
-
-
 def login_request(request):
     if request.user.is_authenticated:
-        return redirect(_get_safe_redirect_url(request) or 'index')
+        return redirect(get_safe_redirect_url(request) or 'index')
 
     title = "Login"
     form = UserLoginForm(request.POST or None)
-    next_url = _get_safe_redirect_url(request)
+    next_url = get_safe_redirect_url(request)
     context = {
         'form': form,
         'title': title,

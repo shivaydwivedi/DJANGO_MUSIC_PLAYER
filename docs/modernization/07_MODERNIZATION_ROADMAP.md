@@ -4,8 +4,11 @@
 
 Branch: `modernization/django-compat-prep`
 
-- Replace `is_safe_url` with `url_has_allowed_host_and_scheme`.
-- Remove `USE_L10N` where safe.
+- Status: in preparation on this branch; this does not complete the actual
+  Django runtime upgrade.
+- Replace `is_safe_url` with a centralized compatibility helper that uses
+  `url_has_allowed_host_and_scheme`.
+- Keep `USE_L10N` behavior unchanged on Django 3.0 and document later removal.
 - Audit allauth settings against the intended target version.
 - Keep Django 3.0.8 while making compatibility changes.
 - Gate: full test suite and smoke harness pass.
