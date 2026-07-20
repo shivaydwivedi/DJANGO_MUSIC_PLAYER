@@ -173,12 +173,18 @@ Runtime tests now cover:
 - normalized changes are not back-synced to legacy rows;
 - old name-based playlist URLs are not retained.
 
+## Legacy Retirement Planning
+
+The follow-up branch `modernization/playlist-legacy-retirement` documents the
+safe retirement policy for the legacy `Playlist` model and table. It defers
+destructive deletion to `modernization/drop-legacy-playlist` until confidence
+criteria, copied-database audit, backup verification, and rollback policy are
+approved.
+
 ## Exact Next Branch
 
-`modernization/playlist-legacy-retirement`
+`modernization/playback-history-post-mutation`
 
 ## Exactly One Next Task
 
-Design the legacy playlist retirement plan, including whether to archive or drop
-the legacy `Playlist` model/table after production confidence in normalized
-runtime behavior.
+Move playback/recent-history mutation off GET routes and onto POST-only actions.
