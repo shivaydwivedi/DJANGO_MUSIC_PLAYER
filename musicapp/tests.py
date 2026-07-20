@@ -671,6 +671,7 @@ class EmptyLibraryPageTests(TestCase):
             reverse('play_song', args=[song.id]),
             reverse('play_song_index', args=[song.id]),
             reverse('play_recent_song', args=[song.id]),
+            reverse('record_song_play', args=[song.id]),
         ]
 
         for url in routes:
@@ -697,42 +698,124 @@ class EmptyLibraryPageTests(TestCase):
                 self.assertEqual(response.status_code, 404)
                 self.assertEqual(self._counts(), before)
 
-    def test_playback_routes_record_recent_for_current_user(self):
+    def test_playback_get_routes_do_not_record_recent_for_current_user(self):
         user = User.objects.create_user(username='playback-listener', password='secret-pass')
         song = self._create_song()
         self.client.force_login(user)
 
-        response = self.client.get(reverse('play_song', args=[song.id]))
+        for url in [
+            reverse('play_song', args=[song.id]),
+            reverse('play_song_index', args=[song.id]),
+            reverse('play_recent_song', args=[song.id]),
+        ]:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(self._counts(), before)
+
+    def test_playback_get_routes_do_not_reorder_recent_history(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        first_song = self._create_song(name='First Recent Song')
+        second_song = self._create_song(name='Second Recent Song')
+        Recent.objects.create(user=user, song=first_song)
+        Recent.objects.create(user=user, song=second_song)
+        self.client.force_login(user)
+        before_order = list(Recent.objects.values_list('id', 'song_id').order_by('-id'))
+
+        response = self.client.get(reverse('play_song', args=[first_song.id]))
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(list(Recent.objects.values_list('id', 'song_id').order_by('-id')), before_order)
+
+    def test_record_song_play_post_records_recent_for_current_user(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('record_song_play', args=[song.id]), {'next': reverse('all_songs')})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('all_songs'))
         self.assertEqual(Recent.objects.filter(user=user, song=song).count(), 1)
 
-    def test_repeated_playback_moves_song_to_newest_without_duplicates(self):
+    def test_repeated_record_song_play_moves_song_to_newest_without_duplicates(self):
         user = User.objects.create_user(username='playback-listener', password='secret-pass')
         first_song = self._create_song(name='First Recent Song')
         second_song = self._create_song(name='Second Recent Song')
         self.client.force_login(user)
 
-        self.client.get(reverse('play_song', args=[first_song.id]))
-        self.client.get(reverse('play_song', args=[second_song.id]))
-        self.client.get(reverse('play_song', args=[first_song.id]))
+        self.client.post(reverse('record_song_play', args=[first_song.id]))
+        self.client.post(reverse('record_song_play', args=[second_song.id]))
+        self.client.post(reverse('record_song_play', args=[first_song.id]))
 
         rows = list(Recent.objects.filter(user=user).order_by('-id'))
         self.assertEqual([row.song for row in rows], [first_song, second_song])
         self.assertEqual(Recent.objects.filter(user=user, song=first_song).count(), 1)
 
-    def test_playback_history_is_scoped_to_current_user(self):
+    def test_record_song_play_cleans_historical_duplicate_rows(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        Recent.objects.create(user=user, song=song)
+        Recent.objects.create(user=user, song=song)
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('record_song_play', args=[song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Recent.objects.filter(user=user, song=song).count(), 1)
+
+    def test_record_song_play_history_is_scoped_to_current_user(self):
         owner = User.objects.create_user(username='owner', password='secret-pass')
         other_user = User.objects.create_user(username='other-listener', password='secret-pass')
         song = self._create_song()
         Recent.objects.create(user=other_user, song=song)
         self.client.force_login(owner)
 
-        response = self.client.get(reverse('play_song_index', args=[song.id]))
+        response = self.client.post(reverse('record_song_play', args=[song.id]))
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Recent.objects.filter(user=owner, song=song).count(), 1)
         self.assertEqual(Recent.objects.filter(user=other_user, song=song).count(), 1)
+
+    def test_record_song_play_invalid_song_id_returns_404_without_history_mutation(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.post(reverse('record_song_play', args=[999]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self._counts(), before)
+
+    def test_record_song_play_get_is_post_only(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('record_song_play', args=[song.id]))
+
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self._counts(), before)
+
+    def test_record_song_play_uses_safe_redirect_or_detail_fallback(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        safe_response = self.client.post(reverse('record_song_play', args=[song.id]), {'next': reverse('recent')})
+        external_response = self.client.post(
+            reverse('record_song_play', args=[song.id]),
+            {'next': 'https://example.com/steal'},
+        )
+        blank_response = self.client.post(reverse('record_song_play', args=[song.id]), {'next': ''})
+        missing_response = self.client.post(reverse('record_song_play', args=[song.id]))
+
+        self.assertEqual(safe_response['Location'], reverse('recent'))
+        self.assertEqual(external_response['Location'], reverse('detail', args=[song.id]))
+        self.assertEqual(blank_response['Location'], reverse('detail', args=[song.id]))
+        self.assertEqual(missing_response['Location'], reverse('detail', args=[song.id]))
 
     def test_detail_get_does_not_create_recent_history(self):
         user = User.objects.create_user(username='playback-listener', password='secret-pass')
@@ -756,13 +839,26 @@ class EmptyLibraryPageTests(TestCase):
 
         response = self.client.get(reverse('recent'))
         content = response.content.decode()
-        first_play_url = reverse('play_recent_song', args=[first_song.id])
-        second_play_url = reverse('play_recent_song', args=[second_song.id])
+        first_play_url = reverse('record_song_play', args=[first_song.id])
+        second_play_url = reverse('record_song_play', args=[second_song.id])
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, first_play_url, count=1)
         self.assertContains(response, second_play_url, count=1)
         self.assertLess(content.index(first_play_url), content.index(second_play_url))
+
+    def test_song_card_play_controls_are_post_forms_with_csrf(self):
+        user = User.objects.create_user(username='playback-listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('all_songs'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'method="post"')
+        self.assertContains(response, reverse('record_song_play', args=[song.id]))
+        self.assertContains(response, 'csrfmiddlewaretoken')
+        self.assertNotContains(response, 'href="{0}"'.format(reverse('play_song', args=[song.id])))
 
     def test_recent_search_filters_current_user_history_without_mutation(self):
         user = User.objects.create_user(username='playback-listener', password='secret-pass')
@@ -955,7 +1051,7 @@ class EmptyLibraryPageTests(TestCase):
         self.assertIn('Total checks:', report)
         self.assertIn('Failed checks: 0', report)
         self.assertIn('Overall result: PASS', report)
-        self.assertIn('legacy navigation design', report)
+        self.assertIn('POST record-play route', report)
         self.assertTrue(all(result['passed'] for result in results))
 
     def test_recovery_smoke_harness_detects_wrong_expectation(self):

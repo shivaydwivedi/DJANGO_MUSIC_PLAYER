@@ -27,9 +27,13 @@
 
   <div class="song-card-actions song-card-actions-inline" aria-label="{{ song.name }} actions">
     {% if play_url_name %}
-    <a class="btn btn-primary icon-button" href="{% url play_url_name song.id %}" aria-label="Play {{ song.name }}">
-      <i class="fa fa-play" aria-hidden="true"></i>
-    </a>
+    <form method="post" action="{% url 'record_song_play' song.id %}" class="song-card-action-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="btn btn-primary icon-button" aria-label="Play {{ song.name }}">
+        <i class="fa fa-play" aria-hidden="true"></i>
+      </button>
+    </form>
     {% endif %}
     <a class="btn btn-ghost icon-button" href="{% url 'detail' song.id %}" aria-label="View details for {{ song.name }}">
       <i class="fa fa-info-circle" aria-hidden="true"></i>

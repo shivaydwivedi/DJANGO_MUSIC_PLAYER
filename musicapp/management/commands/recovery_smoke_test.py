@@ -59,6 +59,7 @@ def build_smoke_checks(auth_user):
         SmokeCheck('protected:remove_song_from_playlist', 'remove_song_from_playlist', 'GET', reverse('remove_song_from_playlist', args=[999, 999]), 'anonymous', 302),
         SmokeCheck('protected:detail', 'detail', 'GET', reverse('detail', args=[999]), 'anonymous', 302),
         SmokeCheck('protected:play_song', 'play_song', 'GET', reverse('play_song', args=[999]), 'anonymous', 302),
+        SmokeCheck('protected:record_song_play', 'record_song_play', 'GET', reverse('record_song_play', args=[999]), 'anonymous', 302),
         SmokeCheck(
             'protected:play_song_index',
             'play_song_index',
@@ -93,6 +94,7 @@ def build_smoke_checks(auth_user):
         SmokeCheck('auth_empty:recent', 'recent', 'GET', reverse('recent'), 'authenticated', 200),
         SmokeCheck('invalid:detail', 'detail', 'GET', reverse('detail', args=[999]), 'authenticated', 404),
         SmokeCheck('invalid:play_song', 'play_song', 'GET', reverse('play_song', args=[999]), 'authenticated', 404),
+        SmokeCheck('invalid:record_song_play', 'record_song_play', 'POST', reverse('record_song_play', args=[999]), 'authenticated', 404, post_data={}),
         SmokeCheck(
             'invalid:play_song_index',
             'play_song_index',
@@ -122,20 +124,40 @@ def build_smoke_checks(auth_user):
         SmokeCheck('post_only:delete_playlist', 'delete_playlist', 'GET', reverse('delete_playlist', args=[999]), 'authenticated', 405),
         SmokeCheck('post_only:add_song_to_playlist', 'add_song_to_playlist', 'GET', reverse('add_song_to_playlist', args=[999, 999]), 'authenticated', 405),
         SmokeCheck('post_only:remove_song_from_playlist', 'remove_song_from_playlist', 'GET', reverse('remove_song_from_playlist', args=[999, 999]), 'authenticated', 405),
+        SmokeCheck('post_only:record_song_play', 'record_song_play', 'GET', reverse('record_song_play', args=[999]), 'authenticated', 405),
         SmokeCheck(
-            'legacy:playback_get',
+            'playback_get:read_only',
             'play_song',
             'GET',
             '',
             'authenticated',
             302,
+        ),
+        SmokeCheck(
+            'post:record_song_play',
+            'record_song_play',
+            'POST',
+            '',
+            'authenticated',
+            302,
             read_only=False,
-            note='Explicit play-button GET route records Recent by legacy navigation design.',
+            post_data={'next': reverse('recent')},
+            note='POST record-play route is the only playback history mutation path.',
         ),
     ]
 
 
-def _prepare_legacy_playback_check(check):
+def _create_smoke_song():
+    return Song.objects.create(
+        name='Smoke Harness Song',
+        album='Smoke Harness',
+        language='English',
+        year=2026,
+        singer='Smoke Harness',
+    )
+
+
+def _prepare_playback_check(check):
     song = Song.objects.create(
         name='Smoke Harness Song',
         album='Smoke Harness',
@@ -146,6 +168,11 @@ def _prepare_legacy_playback_check(check):
     check.url = reverse('play_song', args=[song.id])
 
 
+def _prepare_record_play_check(check):
+    song = _create_smoke_song()
+    check.url = reverse('record_song_play', args=[song.id])
+
+
 def run_smoke_checks(expect_overrides=None):
     expect_overrides = expect_overrides or {}
     auth_user = User.objects.create_user(username='smoke-user', password='smoke-pass')
@@ -154,8 +181,10 @@ def run_smoke_checks(expect_overrides=None):
     http_host = '127.0.0.1' if settings.DEBUG else 'testserver'
 
     for check in checks:
-        if check.key == 'legacy:playback_get':
-            _prepare_legacy_playback_check(check)
+        if check.key == 'playback_get:read_only':
+            _prepare_playback_check(check)
+        elif check.key == 'post:record_song_play':
+            _prepare_record_play_check(check)
 
         client = Client(HTTP_HOST=http_host)
         if check.auth_state == 'authenticated':

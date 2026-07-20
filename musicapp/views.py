@@ -6,6 +6,7 @@ from django.db.models import Count, Q
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from authentication.compat import get_safe_redirect_url
 
 
 # Create your views here.
@@ -19,9 +20,10 @@ def _get_last_played_song(user):
     return None
 
 
-def _record_recent_playback(user, song):
-    Recent.objects.filter(user=user, song=song).delete()
-    return Recent.objects.create(user=user, song=song)
+def _record_recent_play(user, song):
+    with transaction.atomic():
+        Recent.objects.filter(user=user, song=song).delete()
+        return Recent.objects.create(user=user, song=song)
 
 
 def _get_recent_songs(user, limit=None):
@@ -144,22 +146,30 @@ def english_songs(request):
 
 @login_required(login_url='login')
 def play_song(request, song_id):
-    songs = get_object_or_404(Song, id=song_id)
-    _record_recent_playback(request.user, songs)
+    get_object_or_404(Song, id=song_id)
     return redirect('all_songs')
 
 
 @login_required(login_url='login')
 def play_song_index(request, song_id):
-    songs = get_object_or_404(Song, id=song_id)
-    _record_recent_playback(request.user, songs)
+    get_object_or_404(Song, id=song_id)
     return redirect('index')
 
 @login_required(login_url='login')
 def play_recent_song(request, song_id):
-    songs = get_object_or_404(Song, id=song_id)
-    _record_recent_playback(request.user, songs)
+    get_object_or_404(Song, id=song_id)
     return redirect('recent')
+
+
+@login_required(login_url='login')
+@require_POST
+def record_song_play(request, song_id):
+    song = get_object_or_404(Song, id=song_id)
+    _record_recent_play(request.user, song)
+    next_url = get_safe_redirect_url(request)
+    if next_url:
+        return redirect(next_url)
+    return redirect('detail', song_id=song.id)
 
 
 def all_songs(request):
