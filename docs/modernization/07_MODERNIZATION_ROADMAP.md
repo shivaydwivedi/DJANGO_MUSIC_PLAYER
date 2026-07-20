@@ -79,11 +79,22 @@ Branch: `modernization/playlist-containers`
 
 Branch: `modernization/playback-history-post-mutation`
 
+- Status: complete on `modernization/playback-history-post-mutation`.
 - Remove state mutation from GET playback routes.
 - Keep legacy playlist table deletion deferred because dropping an unused table
   does not improve current user behavior as much as fixing HTTP mutation
   correctness.
 - Gate: playback tests, recent-history tests, full suite, and smoke harness.
+
+## Recent History Integrity Follow-Up
+
+Branch: `modernization/recent-uniqueness-planning`
+
+- Evaluate whether to add a database uniqueness constraint for
+  `Recent(user, song)` after POST-only recording proves stable.
+- Include duplicate-data audit and copied-database rehearsal before any schema
+  decision.
+- Gate: data audit, migration plan if needed, full suite, and smoke harness.
 
 ## Phase 7: Upload and Media Validation
 
