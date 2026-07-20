@@ -224,11 +224,16 @@ Migration tests cover:
 - uniqueness constraints remaining valid;
 - runtime views still using the legacy schema.
 
-## Deferred Runtime Cutover
+## Runtime Cutover Follow-Up
 
-This phase does not switch views, forms, templates, profile statistics, admin
-workflows, seed behavior, or smoke-test behavior. Runtime code still reads and
-writes the legacy `Playlist` model.
+This phase originally left views, forms, templates, profile statistics, admin
+workflows, seed behavior, and smoke-test behavior on the legacy `Playlist`
+model.
+
+The follow-up branch `modernization/playlist-runtime-cutover` switched runtime
+playlist behavior to `PlaylistContainer` and `PlaylistSong` while leaving legacy
+rows intact as rollback protection. Normalized runtime writes are not
+back-synced to legacy rows.
 
 ## Exact Next Branch
 

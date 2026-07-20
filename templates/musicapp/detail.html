@@ -74,22 +74,19 @@
                             <i class="fa fa-plus" aria-hidden="true"></i> Create New Playlist
                         </button>
 
-                        <form method="post" class="detail-action-row" aria-label="Add song to an existing playlist">
-                            {% csrf_token %}
-                            <input type="hidden" name="playlist_action" value="add">
-                            <div class="form-field">
-                                <label for="playlist-name-select">Add to playlist</label>
-                                <select id="playlist-name-select" class="custom-select" name="playlist_name">
-                                    <option selected="selected" disabled>Add to Playlist</option>
-                                    {% if playlists %}
-                                    {% for playlist in playlists %}
-                                    <option value="{{ playlist.playlist_name }}">{{ playlist.playlist_name }}</option>
-                                    {% endfor %}
-                                    {% endif %}
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-ghost">Add</button>
-                        </form>
+                        {% if playlists %}
+                        <div class="playlist-action-list" aria-label="Add song to an existing playlist">
+                            {% for playlist in playlists %}
+                            <form method="post" action="{% url 'add_song_to_playlist' playlist.id songs.id %}" class="detail-action-row">
+                                {% csrf_token %}
+                                <span>{{ playlist.name }} ({{ playlist.song_count }} song{{ playlist.song_count|pluralize }})</span>
+                                <button type="submit" class="btn btn-ghost">Add</button>
+                            </form>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="section-subtitle">You do not have any playlists yet.</p>
+                        {% endif %}
                     </div>
                 </section>
 
@@ -114,9 +111,8 @@
 
 <div class="modal fade" id="createPlaylistModal" tabindex="-1" role="dialog" aria-labelledby="createPlaylistModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
-        <form method="post" class="modal-content">
+        <form method="post" action="{% url 'create_playlist' %}" class="modal-content">
             {% csrf_token %}
-            <input type="hidden" name="playlist_action" value="create">
             <div class="modal-header">
                 <h5 class="modal-title" id="createPlaylistModalLabel">New Playlist</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">

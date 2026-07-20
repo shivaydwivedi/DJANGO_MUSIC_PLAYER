@@ -13,7 +13,7 @@ from django.urls import get_resolver, reverse
 from importlib import import_module
 
 from .compat import get_safe_redirect_url
-from musicapp.models import Favourite, Playlist, Recent, Song
+from musicapp.models import Favourite, Playlist, PlaylistContainer, PlaylistSong, Recent, Song
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +71,8 @@ class AuthenticationFlowTests(TestCase):
             'recent': Recent.objects.count(),
             'favourites': Favourite.objects.count(),
             'playlists': Playlist.objects.count(),
+            'playlist_containers': PlaylistContainer.objects.count(),
+            'playlist_songs': PlaylistSong.objects.count(),
         }
 
         response = self.client.get(reverse('mymusic'))
@@ -82,6 +84,8 @@ class AuthenticationFlowTests(TestCase):
             'recent': Recent.objects.count(),
             'favourites': Favourite.objects.count(),
             'playlists': Playlist.objects.count(),
+            'playlist_containers': PlaylistContainer.objects.count(),
+            'playlist_songs': PlaylistSong.objects.count(),
         }, before)
 
     def test_existing_protected_pages_still_require_login(self):
@@ -90,7 +94,7 @@ class AuthenticationFlowTests(TestCase):
             reverse('profile'),
             reverse('favourite'),
             reverse('playlist'),
-            reverse('playlist_songs', args=['Road Trip']),
+            reverse('playlist_songs', args=[999]),
             reverse('play_song', args=[song.id]),
         ]
 
@@ -364,7 +368,8 @@ class AuthenticationFlowTests(TestCase):
         other_user = self._create_user(username='other-profile', email='other@example.com')
         song = self._create_song(name='Other User Recent Song')
         Favourite.objects.create(user=other_user, song=song, is_fav=True)
-        Playlist.objects.create(user=other_user, song=song, playlist_name='Other Secret Mix')
+        other_playlist = PlaylistContainer.objects.create(user=other_user, name='Other Secret Mix')
+        PlaylistSong.objects.create(playlist=other_playlist, song=song)
         Recent.objects.create(user=other_user, song=song)
         self.client.force_login(owner)
 
@@ -385,9 +390,11 @@ class AuthenticationFlowTests(TestCase):
         other_song = self._create_song(name='Other Stats Song')
         Favourite.objects.create(user=owner, song=first_song, is_fav=True)
         Favourite.objects.create(user=other_user, song=other_song, is_fav=True)
-        Playlist.objects.create(user=owner, song=first_song, playlist_name='Focus Mix')
-        Playlist.objects.create(user=owner, song=second_song, playlist_name='Focus Mix')
-        Playlist.objects.create(user=other_user, song=other_song, playlist_name='Other Mix')
+        owner_playlist = PlaylistContainer.objects.create(user=owner, name='Focus Mix')
+        other_playlist = PlaylistContainer.objects.create(user=other_user, name='Other Mix')
+        PlaylistSong.objects.create(playlist=owner_playlist, song=first_song)
+        PlaylistSong.objects.create(playlist=owner_playlist, song=second_song)
+        PlaylistSong.objects.create(playlist=other_playlist, song=other_song)
         Recent.objects.create(user=owner, song=first_song)
         Recent.objects.create(user=owner, song=second_song)
         Recent.objects.create(user=other_user, song=other_song)
@@ -575,7 +582,8 @@ class AuthenticationFlowTests(TestCase):
         owner = self._create_user(username='owner', email='owner@example.com')
         other_user = self._create_user(username='other-user', email='other@example.com')
         song = self._create_song(name='Private Playlist Song')
-        Playlist.objects.create(user=other_user, song=song, playlist_name='Other Private Mix')
+        other_playlist = PlaylistContainer.objects.create(user=other_user, name='Other Private Mix')
+        PlaylistSong.objects.create(playlist=other_playlist, song=song)
         self.client.force_login(owner)
 
         response = self.client.get(reverse('mymusic'))

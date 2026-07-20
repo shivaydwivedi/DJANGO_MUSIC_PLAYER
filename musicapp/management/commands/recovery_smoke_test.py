@@ -7,13 +7,15 @@ from django.db import transaction
 from django.test import Client
 from django.urls import reverse
 
-from musicapp.models import Favourite, Playlist, Recent, Song
+from musicapp.models import Favourite, Playlist, PlaylistContainer, PlaylistSong, Recent, Song
 
 
 COUNT_MODELS = {
     'Song': Song,
     'Favourite': Favourite,
     'Playlist': Playlist,
+    'PlaylistContainer': PlaylistContainer,
+    'PlaylistSong': PlaylistSong,
     'Recent': Recent,
     'User': User,
 }
@@ -49,15 +51,12 @@ def build_smoke_checks(auth_user):
         SmokeCheck('protected:mymusic', 'mymusic', 'GET', reverse('mymusic'), 'anonymous', 302),
         SmokeCheck('protected:favourite', 'favourite', 'GET', reverse('favourite'), 'anonymous', 302),
         SmokeCheck('protected:playlist', 'playlist', 'GET', reverse('playlist'), 'anonymous', 302),
-        SmokeCheck(
-            'protected:playlist_songs',
-            'playlist_songs',
-            'GET',
-            reverse('playlist_songs', args=['Smoke Mix']),
-            'anonymous',
-            302,
-            note='Protected before playlist existence is checked.',
-        ),
+        SmokeCheck('protected:playlist_songs', 'playlist_songs', 'GET', reverse('playlist_songs', args=[999]), 'anonymous', 302),
+        SmokeCheck('protected:create_playlist', 'create_playlist', 'GET', reverse('create_playlist'), 'anonymous', 302),
+        SmokeCheck('protected:rename_playlist', 'rename_playlist', 'GET', reverse('rename_playlist', args=[999]), 'anonymous', 302),
+        SmokeCheck('protected:delete_playlist', 'delete_playlist', 'GET', reverse('delete_playlist', args=[999]), 'anonymous', 302),
+        SmokeCheck('protected:add_song_to_playlist', 'add_song_to_playlist', 'GET', reverse('add_song_to_playlist', args=[999, 999]), 'anonymous', 302),
+        SmokeCheck('protected:remove_song_from_playlist', 'remove_song_from_playlist', 'GET', reverse('remove_song_from_playlist', args=[999, 999]), 'anonymous', 302),
         SmokeCheck('protected:detail', 'detail', 'GET', reverse('detail', args=[999]), 'anonymous', 302),
         SmokeCheck('protected:play_song', 'play_song', 'GET', reverse('play_song', args=[999]), 'anonymous', 302),
         SmokeCheck(
@@ -114,10 +113,15 @@ def build_smoke_checks(auth_user):
             'invalid:playlist_songs',
             'playlist_songs',
             'GET',
-            reverse('playlist_songs', args=['Missing Smoke Mix']),
+            reverse('playlist_songs', args=[999]),
             'authenticated',
             404,
         ),
+        SmokeCheck('post_only:create_playlist', 'create_playlist', 'GET', reverse('create_playlist'), 'authenticated', 405),
+        SmokeCheck('post_only:rename_playlist', 'rename_playlist', 'GET', reverse('rename_playlist', args=[999]), 'authenticated', 405),
+        SmokeCheck('post_only:delete_playlist', 'delete_playlist', 'GET', reverse('delete_playlist', args=[999]), 'authenticated', 405),
+        SmokeCheck('post_only:add_song_to_playlist', 'add_song_to_playlist', 'GET', reverse('add_song_to_playlist', args=[999, 999]), 'authenticated', 405),
+        SmokeCheck('post_only:remove_song_from_playlist', 'remove_song_from_playlist', 'GET', reverse('remove_song_from_playlist', args=[999, 999]), 'authenticated', 405),
         SmokeCheck(
             'legacy:playback_get',
             'play_song',

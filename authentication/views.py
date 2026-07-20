@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.http import require_POST
 from allauth.socialaccount.models import SocialApp
-from musicapp.models import Favourite, Playlist, Recent
+from musicapp.models import Favourite, PlaylistContainer, PlaylistSong, Recent
 from .compat import get_safe_redirect_url
 from .forms import UserLoginForm, ProfileUpdateForm, RegistrationForm
 
@@ -73,7 +73,6 @@ def profile_request(request):
 
     user = request.user
     recent_activity = Recent.objects.filter(user=user).select_related('song').order_by('-id')[:5]
-    playlist_names = Playlist.objects.filter(user=user).values('playlist_name').distinct()
     username = user.username.strip()
     initials = ''.join(part[0] for part in username.split()[:2]).upper() or username[:1].upper() or 'S'
 
@@ -81,9 +80,9 @@ def profile_request(request):
         'form': form,
         'initials': initials[:2],
         'favourite_count': Favourite.objects.filter(user=user, is_fav=True).count(),
-        'playlist_count': playlist_names.count(),
+        'playlist_count': PlaylistContainer.objects.filter(user=user).count(),
         'recent_count': Recent.objects.filter(user=user).count(),
-        'playlist_row_count': Playlist.objects.filter(user=user).count(),
+        'playlist_row_count': PlaylistSong.objects.filter(playlist__user=user).count(),
         'recent_activity': recent_activity,
     }
     return render(request, 'authentication/profile.html', context=context)
