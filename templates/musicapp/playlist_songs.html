@@ -20,7 +20,7 @@
   <section class="page-hero page-hero-compact" aria-labelledby="playlist-songs-title">
     <div>
       <p class="section-kicker">Playlist</p>
-      <h1 id="playlist-songs-title">{{ playlist_name }}</h1>
+      <h1 id="playlist-songs-title">{{ playlist.name }}</h1>
       <p>Songs currently attached to this playlist.</p>
     </div>
   </section>
@@ -29,18 +29,19 @@
     <div>
       <p class="section-kicker">Tracks</p>
       <h2 class="section-title">Playlist Songs</h2>
-      <p class="section-subtitle">Remove keeps the existing POST-only playlist behavior.</p>
+      <p class="section-subtitle">Remove songs without deleting the playlist itself.</p>
     </div>
   </header>
 
   {% if songs %}
   <div class="song-grid">
     {% for song in songs %}
-    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' show_audio=True remove_label='Remove' %}
+    {% url 'remove_song_from_playlist' playlist.id song.id as remove_url %}
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' show_audio=True remove_label='Remove' remove_url=remove_url %}
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state">No songs remain in this playlist. Under the current playlist membership model, a truly empty named playlist is not retained.</div>
+  <div class="empty-state">This playlist is empty. Add songs from a song detail page when you are ready.</div>
   {% endif %}
 </div>
 

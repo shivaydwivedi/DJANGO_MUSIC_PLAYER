@@ -35,6 +35,8 @@ class EmptyLibraryPageTests(TestCase):
             'recent': Recent.objects.count(),
             'favourites': Favourite.objects.count(),
             'playlists': Playlist.objects.count(),
+            'playlist_containers': PlaylistContainer.objects.count(),
+            'playlist_songs': PlaylistSong.objects.count(),
         }
 
     def _create_song(self, name='Synthetic Test Song'):
@@ -237,12 +239,20 @@ class EmptyLibraryPageTests(TestCase):
 
     def test_anonymous_playlist_pages_require_login(self):
         song = self._create_song()
+        playlist = PlaylistContainer.objects.create(
+            user=User.objects.create_user(username='playlist-owner', password='secret-pass'),
+            name='Road Trip',
+        )
         before = self._counts()
 
         responses = [
             self.client.get(reverse('playlist')),
-            self.client.get(reverse('playlist_songs', args=['Road Trip'])),
-            self.client.post(reverse('playlist_songs', args=['Road Trip']), {'song_id': song.id}),
+            self.client.get(reverse('playlist_songs', args=[playlist.id])),
+            self.client.post(reverse('create_playlist'), {'playlist_name': 'New Mix'}),
+            self.client.post(reverse('rename_playlist', args=[playlist.id]), {'playlist_name': 'Renamed'}),
+            self.client.post(reverse('delete_playlist', args=[playlist.id])),
+            self.client.post(reverse('add_song_to_playlist', args=[playlist.id, song.id])),
+            self.client.post(reverse('remove_song_from_playlist', args=[playlist.id, song.id])),
         ]
 
         for response in responses:
@@ -260,113 +270,213 @@ class EmptyLibraryPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Playlist.objects.count(), 0)
+        self.assertEqual(PlaylistContainer.objects.count(), 0)
+        self.assertEqual(PlaylistSong.objects.count(), 0)
 
-    def test_detail_create_playlist_is_idempotent(self):
+    def test_create_playlist_creates_empty_normalized_playlist(self):
         user = User.objects.create_user(username='playlist-listener', password='secret-pass')
-        song = self._create_song()
         self.client.force_login(user)
-        payload = {'playlist_action': 'create', 'playlist_name': 'Road Trip'}
+        before_legacy = Playlist.objects.count()
 
-        first_response = self.client.post(reverse('detail', args=[song.id]), payload)
-        second_response = self.client.post(reverse('detail', args=[song.id]), payload)
+        response = self.client.post(reverse('create_playlist'), {'playlist_name': '  Road Trip  '})
 
-        self.assertEqual(first_response.status_code, 302)
-        self.assertEqual(second_response.status_code, 302)
-        self.assertEqual(
-            Playlist.objects.filter(user=user, song=song, playlist_name='Road Trip').count(),
-            1,
-        )
+        self.assertEqual(response.status_code, 302)
+        playlist = PlaylistContainer.objects.get(user=user, name='Road Trip')
+        self.assertEqual(PlaylistSong.objects.filter(playlist=playlist).count(), 0)
+        self.assertEqual(Playlist.objects.count(), before_legacy)
 
-    def test_detail_add_song_to_existing_playlist_is_idempotent(self):
+    def test_create_playlist_rejects_blank_duplicate_and_overlong_names(self):
         user = User.objects.create_user(username='playlist-listener', password='secret-pass')
-        first_song = self._create_song(name='First Playlist Song')
-        second_song = self._create_song(name='Second Playlist Song')
-        Playlist.objects.create(user=user, song=first_song, playlist_name='Road Trip')
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
         self.client.force_login(user)
-        payload = {'playlist_action': 'add', 'playlist_name': 'Road Trip'}
-
-        first_response = self.client.post(reverse('detail', args=[second_song.id]), payload)
-        second_response = self.client.post(reverse('detail', args=[second_song.id]), payload)
-
-        self.assertEqual(first_response.status_code, 302)
-        self.assertEqual(second_response.status_code, 302)
-        self.assertEqual(Playlist.objects.filter(user=user, playlist_name='Road Trip').count(), 2)
-        self.assertEqual(
-            Playlist.objects.filter(user=user, song=second_song, playlist_name='Road Trip').count(),
-            1,
-        )
-
-    def test_detail_playlist_action_requires_valid_name_and_action(self):
-        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
-        song = self._create_song()
-        self.client.force_login(user)
+        max_length = PlaylistContainer._meta.get_field('name').max_length
 
         for payload in [
-            {'playlist_action': 'create', 'playlist_name': ''},
-            {'playlist_action': 'add', 'playlist_name': '   '},
-            {'playlist_action': 'rename', 'playlist_name': 'Road Trip'},
+            {'playlist_name': ''},
+            {'playlist_name': '   '},
+            {'playlist_name': 'Road Trip'},
+            {'playlist_name': 'x' * (max_length + 1)},
         ]:
             with self.subTest(payload=payload):
-                before = Playlist.objects.count()
-                response = self.client.post(reverse('detail', args=[song.id]), payload)
+                before = self._counts()
+                response = self.client.post(reverse('create_playlist'), payload)
                 self.assertEqual(response.status_code, 400)
-                self.assertEqual(Playlist.objects.count(), before)
+                self.assertEqual(self._counts(), before)
 
-    def test_detail_playlist_name_rejects_overlong_value(self):
+    def test_create_playlist_allows_same_name_for_different_users(self):
+        owner = User.objects.create_user(username='owner', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        PlaylistContainer.objects.create(user=other_user, name='Road Trip')
+        self.client.force_login(owner)
+
+        response = self.client.post(reverse('create_playlist'), {'playlist_name': 'Road Trip'})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(PlaylistContainer.objects.filter(name='Road Trip').count(), 2)
+
+    def test_playlist_list_empty_state_renders_without_mutation(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('playlist'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'There are no playlists yet.')
+        self.assertEqual(self._counts(), before)
+
+    def test_detail_playlist_action_no_longer_mutates_playlists(self):
         user = User.objects.create_user(username='playlist-listener', password='secret-pass')
         song = self._create_song()
-        max_length = Playlist._meta.get_field('playlist_name').max_length
         self.client.force_login(user)
-        before = Playlist.objects.count()
 
         response = self.client.post(
             reverse('detail', args=[song.id]),
-            {'playlist_action': 'create', 'playlist_name': 'x' * (max_length + 1)},
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(Playlist.objects.count(), before)
-
-    def test_detail_playlist_invalid_song_id_does_not_create_playlist(self):
-        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
-        self.client.force_login(user)
-
-        response = self.client.post(
-            reverse('detail', args=[999]),
             {'playlist_action': 'create', 'playlist_name': 'Road Trip'},
         )
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Playlist.objects.exists())
+        self.assertFalse(PlaylistContainer.objects.exists())
+        self.assertFalse(PlaylistSong.objects.exists())
+
+    def test_detail_page_lists_normalized_containers_for_add_actions(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        PlaylistContainer.objects.create(user=other_user, name='Other Mix')
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Road Trip')
+        self.assertContains(response, reverse('add_song_to_playlist', args=[playlist.id, song.id]))
+        self.assertNotContains(response, 'Other Mix')
+
+    def test_add_song_to_playlist_is_normalized_and_idempotent(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        self.client.force_login(user)
+
+        first_response = self.client.post(reverse('add_song_to_playlist', args=[playlist.id, song.id]))
+        second_response = self.client.post(reverse('add_song_to_playlist', args=[playlist.id, song.id]))
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.assertEqual(PlaylistSong.objects.filter(playlist=playlist, song=song).count(), 1)
         self.assertEqual(Playlist.objects.count(), 0)
 
-    def test_playlist_page_lists_distinct_current_user_playlists(self):
+    def test_same_song_can_be_added_to_different_owned_playlists(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        first_playlist = PlaylistContainer.objects.create(user=user, name='Morning')
+        second_playlist = PlaylistContainer.objects.create(user=user, name='Evening')
+        self.client.force_login(user)
+
+        first_response = self.client.post(reverse('add_song_to_playlist', args=[first_playlist.id, song.id]))
+        second_response = self.client.post(reverse('add_song_to_playlist', args=[second_playlist.id, song.id]))
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.assertEqual(PlaylistSong.objects.filter(song=song).count(), 2)
+
+    def test_add_song_rejects_invalid_or_foreign_playlist_and_song(self):
+        owner = User.objects.create_user(username='owner', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        playlist = PlaylistContainer.objects.create(user=other_user, name='Other Mix')
+        song = self._create_song()
+        self.client.force_login(owner)
+
+        responses = [
+            self.client.post(reverse('add_song_to_playlist', args=[playlist.id, song.id])),
+            self.client.post(reverse('add_song_to_playlist', args=[999, song.id])),
+            self.client.post(reverse('add_song_to_playlist', args=[playlist.id, 999])),
+        ]
+
+        for response in responses:
+            with self.subTest(status=response.status_code):
+                self.assertEqual(response.status_code, 404)
+        self.assertFalse(PlaylistSong.objects.exists())
+
+    def test_playlist_page_lists_current_user_playlists_and_song_counts(self):
         owner = User.objects.create_user(username='owner', password='secret-pass')
         other_user = User.objects.create_user(username='other-listener', password='secret-pass')
         first_song = self._create_song(name='First Playlist Song')
         second_song = self._create_song(name='Second Playlist Song')
-        other_song = self._create_song(name='Other Playlist Song')
-        Playlist.objects.create(user=owner, song=first_song, playlist_name='Road Trip')
-        Playlist.objects.create(user=owner, song=second_song, playlist_name='Road Trip')
-        Playlist.objects.create(user=other_user, song=other_song, playlist_name='Other Mix')
+        playlist = PlaylistContainer.objects.create(user=owner, name='Road Trip')
+        PlaylistSong.objects.create(playlist=playlist, song=first_song)
+        PlaylistSong.objects.create(playlist=playlist, song=second_song)
+        PlaylistContainer.objects.create(user=owner, name='Empty Mix')
+        PlaylistContainer.objects.create(user=other_user, name='Other Mix')
         self.client.force_login(owner)
 
         response = self.client.get(reverse('playlist'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Road Trip', count=1)
+        self.assertContains(response, 'Road Trip')
+        self.assertContains(response, '2 songs')
+        self.assertContains(response, 'Empty Mix')
+        self.assertContains(response, '0 songs')
         self.assertNotContains(response, 'Other Mix')
 
-    def test_playlist_songs_page_is_user_scoped(self):
+    def test_runtime_pages_ignore_legacy_only_playlist_rows(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        Playlist.objects.create(user=user, song=song, playlist_name='Legacy Only')
+        self.client.force_login(user)
+
+        playlist_response = self.client.get(reverse('playlist'))
+        detail_response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(playlist_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertNotContains(playlist_response, 'Legacy Only')
+        self.assertNotContains(detail_response, 'Legacy Only')
+        self.assertEqual(Playlist.objects.count(), 1)
+
+    def test_playlist_detail_renders_empty_playlist_without_mutation(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        playlist = PlaylistContainer.objects.create(user=user, name='Empty Mix')
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('playlist_songs', args=[playlist.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'This playlist is empty.')
+        self.assertEqual(self._counts(), before)
+
+    def test_playlist_detail_orders_songs_by_membership_order(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        playlist = PlaylistContainer.objects.create(user=user, name='Ordered Mix')
+        first_song = self._create_song(name='Alpha Runtime Song')
+        second_song = self._create_song(name='Beta Runtime Song')
+        PlaylistSong.objects.create(playlist=playlist, song=first_song)
+        PlaylistSong.objects.create(playlist=playlist, song=second_song)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('playlist_songs', args=[playlist.id]))
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertLess(content.index('Alpha Runtime Song'), content.index('Beta Runtime Song'))
+
+    def test_playlist_songs_page_is_id_based_and_user_scoped(self):
         owner = User.objects.create_user(username='owner', password='secret-pass')
         other_user = User.objects.create_user(username='other-listener', password='secret-pass')
         owner_song = self._create_song(name='Owner Playlist Song')
         other_song = self._create_song(name='Other Playlist Song')
-        Playlist.objects.create(user=owner, song=owner_song, playlist_name='Shared Name')
-        Playlist.objects.create(user=other_user, song=other_song, playlist_name='Other Name')
+        playlist = PlaylistContainer.objects.create(user=owner, name='Shared Name')
+        other_playlist = PlaylistContainer.objects.create(user=other_user, name='Other Name')
+        PlaylistSong.objects.create(playlist=playlist, song=owner_song)
+        PlaylistSong.objects.create(playlist=other_playlist, song=other_song)
         self.client.force_login(owner)
 
-        own_response = self.client.get(reverse('playlist_songs', args=['Shared Name']))
-        other_response = self.client.get(reverse('playlist_songs', args=['Other Name']))
+        own_response = self.client.get(reverse('playlist_songs', args=[playlist.id]))
+        other_response = self.client.get(reverse('playlist_songs', args=[other_playlist.id]))
 
         self.assertEqual(own_response.status_code, 200)
         self.assertContains(own_response, 'Owner Playlist Song')
@@ -382,11 +492,12 @@ class EmptyLibraryPageTests(TestCase):
             year=2026,
             singer='Test Singer',
         )
-        Playlist.objects.create(user=user, song=song, playlist_name='Road Trip')
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
         self.client.force_login(user)
         before = self._counts()
 
-        response = self.client.get(reverse('playlist_songs', args=['Road Trip']))
+        response = self.client.get(reverse('playlist_songs', args=[playlist.id]))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Cover unavailable')
@@ -396,33 +507,161 @@ class EmptyLibraryPageTests(TestCase):
     def test_playlist_remove_requires_valid_song_id(self):
         user = User.objects.create_user(username='playlist-listener', password='secret-pass')
         song = self._create_song()
-        Playlist.objects.create(user=user, song=song, playlist_name='Road Trip')
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
         self.client.force_login(user)
 
-        for payload, expected_status in [
-            ({}, 400),
-            ({'song_id': 'abc'}, 400),
-            ({'song_id': '999'}, 404),
-        ]:
-            with self.subTest(payload=payload):
-                before = Playlist.objects.count()
-                response = self.client.post(reverse('playlist_songs', args=['Road Trip']), payload)
-                self.assertEqual(response.status_code, expected_status)
-                self.assertEqual(Playlist.objects.count(), before)
+        before = self._counts()
+        response = self.client.post(reverse('remove_song_from_playlist', args=[playlist.id, 999]))
 
-    def test_playlist_remove_is_scoped_to_current_user(self):
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self._counts(), before)
+
+    def test_playlist_remove_is_scoped_and_preserves_empty_container(self):
         owner = User.objects.create_user(username='owner', password='secret-pass')
         other_user = User.objects.create_user(username='other-listener', password='secret-pass')
         song = self._create_song()
-        Playlist.objects.create(user=owner, song=song, playlist_name='Shared Name')
-        Playlist.objects.create(user=other_user, song=song, playlist_name='Shared Name')
+        playlist = PlaylistContainer.objects.create(user=owner, name='Shared Name')
+        other_playlist = PlaylistContainer.objects.create(user=other_user, name='Shared Name')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
+        PlaylistSong.objects.create(playlist=other_playlist, song=song)
         self.client.force_login(owner)
 
-        response = self.client.post(reverse('playlist_songs', args=['Shared Name']), {'song_id': song.id})
+        response = self.client.post(reverse('remove_song_from_playlist', args=[playlist.id, song.id]))
 
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(Playlist.objects.filter(user=owner, song=song, playlist_name='Shared Name').exists())
-        self.assertTrue(Playlist.objects.filter(user=other_user, song=song, playlist_name='Shared Name').exists())
+        self.assertTrue(PlaylistContainer.objects.filter(id=playlist.id).exists())
+        self.assertFalse(PlaylistSong.objects.filter(playlist=playlist, song=song).exists())
+        self.assertTrue(PlaylistSong.objects.filter(playlist=other_playlist, song=song).exists())
+        empty_response = self.client.get(reverse('playlist_songs', args=[playlist.id]))
+        self.assertEqual(empty_response.status_code, 200)
+        self.assertContains(empty_response, 'This playlist is empty.')
+
+        foreign_remove = self.client.post(reverse('remove_song_from_playlist', args=[other_playlist.id, song.id]))
+        self.assertEqual(foreign_remove.status_code, 404)
+        self.assertTrue(PlaylistSong.objects.filter(playlist=other_playlist, song=song).exists())
+
+    def test_removing_missing_membership_does_not_crash(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('remove_song_from_playlist', args=[playlist.id, song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(PlaylistContainer.objects.filter(id=playlist.id).exists())
+
+    def test_remove_song_does_not_delete_song_record(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('remove_song_from_playlist', args=[playlist.id, song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Song.objects.filter(id=song.id).exists())
+
+    def test_rename_playlist_trims_and_rejects_duplicate_or_foreign_playlist(self):
+        owner = User.objects.create_user(username='owner', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        playlist = PlaylistContainer.objects.create(user=owner, name='Road Trip')
+        PlaylistContainer.objects.create(user=owner, name='Focus')
+        other_playlist = PlaylistContainer.objects.create(user=other_user, name='Other Mix')
+        self.client.force_login(owner)
+
+        response = self.client.post(reverse('rename_playlist', args=[playlist.id]), {'playlist_name': '  New Road  '})
+        self.assertEqual(response.status_code, 302)
+        playlist.refresh_from_db()
+        self.assertEqual(playlist.name, 'New Road')
+
+        duplicate = self.client.post(reverse('rename_playlist', args=[playlist.id]), {'playlist_name': 'Focus'})
+        blank = self.client.post(reverse('rename_playlist', args=[playlist.id]), {'playlist_name': '   '})
+        foreign = self.client.post(reverse('rename_playlist', args=[other_playlist.id]), {'playlist_name': 'Hidden'})
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertEqual(blank.status_code, 400)
+        self.assertEqual(foreign.status_code, 404)
+        self.assertEqual(PlaylistContainer.objects.get(id=other_playlist.id).name, 'Other Mix')
+
+    def test_rename_allows_same_name_owned_by_different_user(self):
+        owner = User.objects.create_user(username='owner', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        playlist = PlaylistContainer.objects.create(user=owner, name='Road Trip')
+        PlaylistContainer.objects.create(user=other_user, name='Focus')
+        self.client.force_login(owner)
+
+        response = self.client.post(reverse('rename_playlist', args=[playlist.id]), {'playlist_name': 'Focus'})
+
+        self.assertEqual(response.status_code, 302)
+        playlist.refresh_from_db()
+        self.assertEqual(playlist.name, 'Focus')
+
+    def test_delete_playlist_removes_memberships_not_songs_or_legacy_rows(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
+        Playlist.objects.create(user=user, playlist_name='Legacy Mix', song=song)
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('delete_playlist', args=[playlist.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(PlaylistContainer.objects.filter(id=playlist.id).exists())
+        self.assertFalse(PlaylistSong.objects.filter(playlist_id=playlist.id).exists())
+        self.assertTrue(Song.objects.filter(id=song.id).exists())
+        self.assertTrue(Playlist.objects.filter(user=user, playlist_name='Legacy Mix', song=song).exists())
+
+    def test_delete_playlist_is_scoped_to_current_user(self):
+        owner = User.objects.create_user(username='owner', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        playlist = PlaylistContainer.objects.create(user=other_user, name='Other Mix')
+        self.client.force_login(owner)
+
+        response = self.client.post(reverse('delete_playlist', args=[playlist.id]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(PlaylistContainer.objects.filter(id=playlist.id).exists())
+
+    def test_legacy_rows_remain_unchanged_across_normalized_operations(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        legacy = Playlist.objects.create(user=user, playlist_name='Legacy Mix', song=song)
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        self.client.force_login(user)
+
+        self.client.post(reverse('add_song_to_playlist', args=[playlist.id, song.id]))
+        self.client.post(reverse('rename_playlist', args=[playlist.id]), {'playlist_name': 'New Road'})
+        self.client.post(reverse('remove_song_from_playlist', args=[playlist.id, song.id]))
+        self.client.post(reverse('delete_playlist', args=[playlist.id]))
+
+        legacy.refresh_from_db()
+        self.assertEqual(legacy.playlist_name, 'Legacy Mix')
+        self.assertEqual(legacy.song_id, song.id)
+        self.assertEqual(Playlist.objects.count(), 1)
+
+    def test_playlist_mutations_are_post_only(self):
+        user = User.objects.create_user(username='playlist-listener', password='secret-pass')
+        song = self._create_song()
+        playlist = PlaylistContainer.objects.create(user=user, name='Road Trip')
+        self.client.force_login(user)
+
+        urls = [
+            reverse('create_playlist'),
+            reverse('rename_playlist', args=[playlist.id]),
+            reverse('delete_playlist', args=[playlist.id]),
+            reverse('add_song_to_playlist', args=[playlist.id, song.id]),
+            reverse('remove_song_from_playlist', args=[playlist.id, song.id]),
+        ]
+
+        for url in urls:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 405)
+                self.assertEqual(self._counts(), before)
 
     def test_anonymous_playback_routes_require_login(self):
         song = self._create_song()
@@ -641,11 +880,12 @@ class EmptyLibraryPageTests(TestCase):
     def test_blank_media_song_renders_safely_on_playlist_songs_page(self):
         user = User.objects.create_user(username='media-listener', password='secret-pass')
         song = self._create_song_with_media_state('Blank Playlist Media Song')
-        Playlist.objects.create(user=user, song=song, playlist_name='Media Mix')
+        playlist = PlaylistContainer.objects.create(user=user, name='Media Mix')
+        PlaylistSong.objects.create(playlist=playlist, song=song)
         self.client.force_login(user)
         before = self._counts()
 
-        response = self.client.get(reverse('playlist_songs', args=['Media Mix']))
+        response = self.client.get(reverse('playlist_songs', args=[playlist.id]))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Cover unavailable')
@@ -698,7 +938,7 @@ class EmptyLibraryPageTests(TestCase):
             reverse('detail', args=[song.id]),
             reverse('favourite'),
             reverse('playlist'),
-            reverse('playlist_songs', args=['Media Mix']),
+            reverse('playlist_songs', args=[999]),
         ]:
             with self.subTest(url=url):
                 response = self.client.get(url)

@@ -35,7 +35,7 @@
       <i class="fa fa-info-circle" aria-hidden="true"></i>
     </a>
     {% if remove_label %}
-    <form method="post" class="song-card-action-form">
+    <form method="post" class="song-card-action-form"{% if remove_url %} action="{{ remove_url }}"{% endif %}>
       {% csrf_token %}
       <input type="hidden" name="song_id" value="{{ song.id }}">
       <button class="btn btn-danger" type="submit">{{ remove_label }}</button>

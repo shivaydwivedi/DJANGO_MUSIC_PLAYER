@@ -8,29 +8,58 @@
     <div>
       <p class="section-kicker">Collections</p>
       <h1 id="playlists-title">All Playlists</h1>
-      <p>Your playlist names are shown from saved song membership rows.</p>
+      <p>Create playlists, keep empty drafts, and organize songs into focused collections.</p>
     </div>
   </section>
+
+  {% if messages %}
+  <div class="messages" aria-live="polite">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <header class="section-heading">
     <div>
       <p class="section-kicker">Playlists</p>
       <h2 class="section-title">Saved Playlists</h2>
-      <p class="section-subtitle">Open a playlist to manage the songs currently attached to it.</p>
+      <p class="section-subtitle">Open a playlist to manage its songs, rename it, or remove it.</p>
     </div>
   </header>
+
+  <form method="post" action="{% url 'create_playlist' %}" class="auth-form playlist-form">
+    {% csrf_token %}
+    <div class="form-field">
+      <label for="new-playlist-name">Create playlist</label>
+      <input type="text" class="form-control" id="new-playlist-name" name="playlist_name" placeholder="Playlist name">
+    </div>
+    <button type="submit" class="btn btn-primary">Create</button>
+  </form>
 
   {% if playlists %}
   <div class="collection-grid">
     {% for playlist in playlists %}
-    <a class="collection-card" href="{% url 'playlist_songs' playlist.playlist_name %}">
-      <h3 class="collection-card-title">{{ playlist.playlist_name }}</h3>
-      <p class="collection-card-meta">View playlist songs</p>
-    </a>
+    <article class="collection-card">
+      <a href="{% url 'playlist_songs' playlist.id %}">
+        <h3 class="collection-card-title">{{ playlist.name }}</h3>
+        <p class="collection-card-meta">{{ playlist.song_count }} song{{ playlist.song_count|pluralize }}</p>
+      </a>
+      <form method="post" action="{% url 'rename_playlist' playlist.id %}" class="playlist-inline-form">
+        {% csrf_token %}
+        <label class="sr-only" for="rename-playlist-{{ playlist.id }}">Rename {{ playlist.name }}</label>
+        <input type="text" class="form-control" id="rename-playlist-{{ playlist.id }}" name="playlist_name" value="{{ playlist.name }}">
+        <button type="submit" class="btn btn-ghost">Rename</button>
+      </form>
+      <form method="post" action="{% url 'delete_playlist' playlist.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
+    </article>
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state">There isn't any playlist! First create new playlist.</div>
+  <div class="empty-state">There are no playlists yet. Create one to start organizing your library.</div>
   {% endif %}
 </div>
 

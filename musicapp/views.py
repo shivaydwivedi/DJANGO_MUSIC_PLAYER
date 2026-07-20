@@ -1,9 +1,11 @@
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import *
-from django.db.models import Q
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 
 
 # Create your views here.
@@ -46,20 +48,18 @@ def _get_valid_playlist_name(request):
     if not playlist_name:
         return None, "Missing playlist name."
 
-    max_length = Playlist._meta.get_field('playlist_name').max_length
+    max_length = PlaylistContainer._meta.get_field('name').max_length
     if max_length is not None and len(playlist_name) > max_length:
         return None, "Playlist name is too long."
 
     return playlist_name, None
 
 
-def _is_valid_playlist_name(playlist_name):
-    playlist_name = playlist_name.strip()
-    if not playlist_name:
-        return False
-
-    max_length = Playlist._meta.get_field('playlist_name').max_length
-    return max_length is None or len(playlist_name) <= max_length
+def _get_user_playlist_or_404(user, playlist_id):
+    return get_object_or_404(
+        PlaylistContainer.objects.filter(user=user),
+        id=playlist_id,
+    )
 
 
 def index(request):
@@ -228,20 +228,13 @@ def detail(request, song_id):
     last_played_song = _get_last_played_song(request.user)
 
 
-    playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct()
+    playlists = PlaylistContainer.objects.filter(user=request.user).annotate(song_count=Count('songs'))
     is_favourite = Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists()
 
     if request.method == "POST":
-        if request.POST.get('playlist_action') in ['create', 'add']:
-            playlist_name, error = _get_valid_playlist_name(request)
-            if error:
-                return HttpResponseBadRequest(error)
-            Playlist.objects.get_or_create(user=request.user, song=songs, playlist_name=playlist_name)
-            messages.success(request, "Song added to playlist!")
-            return redirect('detail', song_id=song_id)
-        elif 'playlist_action' in request.POST:
+        if 'playlist_action' in request.POST:
             return HttpResponseBadRequest("Invalid playlist action.")
-        elif request.POST.get('favorite_action') == 'add':
+        if request.POST.get('favorite_action') == 'add':
             if not Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists():
                 Favourite.objects.create(user=request.user, song=songs, is_fav=True)
             messages.success(request, "Added to favorite!")
@@ -264,36 +257,96 @@ def mymusic(request):
 
 @login_required(login_url='login')
 def playlist(request):
-    playlists = Playlist.objects.filter(user=request.user).values('playlist_name').distinct()
+    playlists = PlaylistContainer.objects.filter(user=request.user).annotate(song_count=Count('songs'))
     context = {'playlists': playlists}
     return render(request, 'musicapp/playlist.html', context=context)
 
 
 @login_required(login_url='login')
-def playlist_songs(request, playlist_name):
-    if not _is_valid_playlist_name(playlist_name):
-        return HttpResponseBadRequest("Invalid playlist name.")
-    if not Playlist.objects.filter(playlist_name=playlist_name, user=request.user).exists():
-        raise Http404("Playlist not found.")
-
-    songs = Song.objects.filter(playlist__playlist_name=playlist_name, playlist__user=request.user).distinct()
-
-    if request.method == "POST":
-        song_id = request.POST.get('song_id')
-        if not song_id:
-            return HttpResponseBadRequest("Missing song id.")
-        try:
-            song_id = int(song_id)
-        except ValueError:
-            return HttpResponseBadRequest("Invalid song id.")
-        get_object_or_404(Song, id=song_id)
-        Playlist.objects.filter(playlist_name=playlist_name, song__id=song_id, user=request.user).delete()
-        messages.success(request, "Song removed from playlist!")
-        return redirect('playlist_songs', playlist_name=playlist_name)
-
-    context = {'playlist_name': playlist_name, 'songs': songs}
+def playlist_songs(request, playlist_id):
+    playlist_obj = _get_user_playlist_or_404(request.user, playlist_id)
+    memberships = (
+        PlaylistSong.objects
+        .filter(playlist=playlist_obj)
+        .select_related('song')
+        .order_by('added_at', 'id')
+    )
+    songs = [membership.song for membership in memberships]
+    context = {'playlist': playlist_obj, 'songs': songs}
 
     return render(request, 'musicapp/playlist_songs.html', context=context)
+
+
+@login_required(login_url='login')
+@require_POST
+def create_playlist(request):
+    playlist_name, error = _get_valid_playlist_name(request)
+    if error:
+        return HttpResponseBadRequest(error)
+    if PlaylistContainer.objects.filter(user=request.user, name=playlist_name).exists():
+        return HttpResponseBadRequest("A playlist with that name already exists.")
+    try:
+        with transaction.atomic():
+            PlaylistContainer.objects.create(
+                user=request.user,
+                name=playlist_name,
+            )
+    except IntegrityError:
+        return HttpResponseBadRequest("A playlist with that name already exists.")
+    messages.success(request, "Playlist created.")
+    return redirect('playlist')
+
+
+@login_required(login_url='login')
+@require_POST
+def rename_playlist(request, playlist_id):
+    playlist_obj = _get_user_playlist_or_404(request.user, playlist_id)
+    playlist_name, error = _get_valid_playlist_name(request)
+    if error:
+        return HttpResponseBadRequest(error)
+    if PlaylistContainer.objects.filter(user=request.user, name=playlist_name).exclude(id=playlist_obj.id).exists():
+        return HttpResponseBadRequest("A playlist with that name already exists.")
+    playlist_obj.name = playlist_name
+    try:
+        with transaction.atomic():
+            playlist_obj.save(update_fields=['name', 'updated_at'])
+    except IntegrityError:
+        return HttpResponseBadRequest("A playlist with that name already exists.")
+    messages.success(request, "Playlist renamed.")
+    return redirect('playlist_songs', playlist_id=playlist_obj.id)
+
+
+@login_required(login_url='login')
+@require_POST
+def delete_playlist(request, playlist_id):
+    playlist_obj = _get_user_playlist_or_404(request.user, playlist_id)
+    playlist_obj.delete()
+    messages.success(request, "Playlist deleted.")
+    return redirect('playlist')
+
+
+@login_required(login_url='login')
+@require_POST
+def add_song_to_playlist(request, playlist_id, song_id):
+    playlist_obj = _get_user_playlist_or_404(request.user, playlist_id)
+    song = get_object_or_404(Song, id=song_id)
+    with transaction.atomic():
+        _membership, created = PlaylistSong.objects.get_or_create(playlist=playlist_obj, song=song)
+    if created:
+        messages.success(request, "Song added to playlist.")
+    else:
+        messages.info(request, "That song is already in this playlist.")
+    return redirect('detail', song_id=song.id)
+
+
+@login_required(login_url='login')
+@require_POST
+def remove_song_from_playlist(request, playlist_id, song_id):
+    playlist_obj = _get_user_playlist_or_404(request.user, playlist_id)
+    get_object_or_404(Song, id=song_id)
+    PlaylistSong.objects.filter(playlist=playlist_obj, song_id=song_id).delete()
+    messages.success(request, "Song removed from playlist.")
+    return redirect('playlist_songs', playlist_id=playlist_obj.id)
 
 
 @login_required(login_url='login')
