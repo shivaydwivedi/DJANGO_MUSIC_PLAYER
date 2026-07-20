@@ -66,11 +66,24 @@ Branch: `modernization/playlist-containers`
 
 - Status: schema foundation complete on `modernization/playlist-schema`; data
   migration complete on `modernization/playlist-data-migration`; runtime
-  cutover complete on `modernization/playlist-runtime-cutover`.
+  cutover complete on `modernization/playlist-runtime-cutover`; legacy
+  retirement planning complete on `modernization/playlist-legacy-retirement`.
 - Introduce a true playlist container model and membership table.
 - Preserve current playlist names and song memberships through a data migration.
 - Support empty playlists intentionally.
+- Defer destructive legacy table removal to `modernization/drop-legacy-playlist`
+  after the documented confidence criteria are satisfied.
 - Gate: migration tests, authorization tests, browser QA.
+
+## Immediate Next Engineering Branch
+
+Branch: `modernization/playback-history-post-mutation`
+
+- Remove state mutation from GET playback routes.
+- Keep legacy playlist table deletion deferred because dropping an unused table
+  does not improve current user behavior as much as fixing HTTP mutation
+  correctness.
+- Gate: playback tests, recent-history tests, full suite, and smoke harness.
 
 ## Phase 7: Upload and Media Validation
 
