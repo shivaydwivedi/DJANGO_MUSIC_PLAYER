@@ -64,6 +64,35 @@ def _get_user_playlist_or_404(user, playlist_id):
     )
 
 
+def _redirect_to_next_or(request, fallback_name, **fallback_kwargs):
+    next_url = get_safe_redirect_url(request)
+    if next_url:
+        return redirect(next_url)
+    return redirect(fallback_name, **fallback_kwargs)
+
+
+def _activate_favourite(user, song):
+    with transaction.atomic():
+        favourites = list(
+            Favourite.objects
+            .select_for_update()
+            .filter(user=user, song=song)
+            .order_by('-is_fav', 'id')
+        )
+        if not favourites:
+            Favourite.objects.create(user=user, song=song, is_fav=True)
+            return
+
+        favourite = favourites[0]
+        if not favourite.is_fav:
+            favourite.is_fav = True
+            favourite.save(update_fields=['is_fav'])
+
+        duplicate_ids = [row.id for row in favourites[1:]]
+        if duplicate_ids:
+            Favourite.objects.filter(id__in=duplicate_ids).delete()
+
+
 def index(request):
 
     #Display recent songs
@@ -166,10 +195,7 @@ def play_recent_song(request, song_id):
 def record_song_play(request, song_id):
     song = get_object_or_404(Song, id=song_id)
     _record_recent_play(request.user, song)
-    next_url = get_safe_redirect_url(request)
-    if next_url:
-        return redirect(next_url)
-    return redirect('detail', song_id=song.id)
+    return _redirect_to_next_or(request, 'detail', song_id=song.id)
 
 
 def all_songs(request):
@@ -244,16 +270,7 @@ def detail(request, song_id):
     if request.method == "POST":
         if 'playlist_action' in request.POST:
             return HttpResponseBadRequest("Invalid playlist action.")
-        if request.POST.get('favorite_action') == 'add':
-            if not Favourite.objects.filter(user=request.user, song=songs, is_fav=True).exists():
-                Favourite.objects.create(user=request.user, song=songs, is_fav=True)
-            messages.success(request, "Added to favorite!")
-            return redirect('detail', song_id=song_id)
-        elif request.POST.get('favorite_action') == 'remove':
-            Favourite.objects.filter(user=request.user, song=songs, is_fav=True).delete()
-            messages.success(request, "Removed from favorite!")
-            return redirect('detail', song_id=song_id)
-        elif 'favorite_action' in request.POST:
+        if 'favorite_action' in request.POST:
             return HttpResponseBadRequest("Invalid favourite action.")
 
     context = {'songs': songs, 'playlists': playlists, 'is_favourite': is_favourite,'last_played':last_played_song}
@@ -360,20 +377,25 @@ def remove_song_from_playlist(request, playlist_id, song_id):
 
 
 @login_required(login_url='login')
+@require_POST
+def add_favourite(request, song_id):
+    song = get_object_or_404(Song, id=song_id)
+    _activate_favourite(request.user, song)
+    messages.success(request, "Added to favorite!")
+    return _redirect_to_next_or(request, 'detail', song_id=song.id)
+
+
+@login_required(login_url='login')
+@require_POST
+def remove_favourite(request, song_id):
+    song = get_object_or_404(Song, id=song_id)
+    Favourite.objects.filter(user=request.user, song=song).delete()
+    messages.success(request, "Removed from favourite!")
+    return _redirect_to_next_or(request, 'favourite')
+
+
+@login_required(login_url='login')
 def favourite(request):
     songs = Song.objects.filter(favourite__user=request.user, favourite__is_fav=True).distinct()
-    
-    if request.method == "POST":
-        song_id = request.POST.get('song_id')
-        if not song_id:
-            return HttpResponseBadRequest("Missing song id.")
-        try:
-            song_id = int(song_id)
-        except ValueError:
-            return HttpResponseBadRequest("Invalid song id.")
-        get_object_or_404(Song, id=song_id)
-        Favourite.objects.filter(user=request.user, song__id=song_id, is_fav=True).delete()
-        messages.success(request, "Removed from favourite!")
-        return redirect('favourite')
     context = {'songs': songs}
     return render(request, 'musicapp/favourite.html', context=context)

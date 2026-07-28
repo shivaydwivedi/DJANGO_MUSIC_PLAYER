@@ -75,7 +75,7 @@ Branch: `modernization/playlist-containers`
   after the documented confidence criteria are satisfied.
 - Gate: migration tests, authorization tests, browser QA.
 
-## Immediate Next Engineering Branch
+## Recent History Mutation Follow-Up
 
 Branch: `modernization/playback-history-post-mutation`
 
@@ -85,6 +85,29 @@ Branch: `modernization/playback-history-post-mutation`
   does not improve current user behavior as much as fixing HTTP mutation
   correctness.
 - Gate: playback tests, recent-history tests, full suite, and smoke harness.
+
+## Favourite Mutation Follow-Up
+
+Branch: `modernization/favourite-post-mutation`
+
+- Status: complete on `modernization/favourite-post-mutation`.
+- Move Favourite creation, reactivation, and removal into dedicated
+  authenticated POST-only routes.
+- Keep Favourite schema constraints deferred until duplicate data has been
+  audited on copied production-like data.
+- Gate: Favourite mutation tests, template CSRF checks, full suite, smoke
+  harness, warning-mode checks, and production checks.
+
+## Immediate Next Engineering Branch
+
+Branch: `modernization/favourite-uniqueness-planning`
+
+- Audit duplicate Favourite rows and false-state rows in copied
+  production-like data.
+- Prepare a reviewed plan for a future `Favourite(user, song)` uniqueness
+  migration without changing schema in this branch.
+- Gate: duplicate audit, migration rehearsal plan, full suite, and smoke
+  harness.
 
 ## Recent History Integrity Follow-Up
 

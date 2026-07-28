@@ -37,7 +37,7 @@
   {% if songs %}
   <div class="song-grid">
     {% for song in songs %}
-    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' show_audio=True remove_label='Remove' %}
+    {% include 'musicapp/partials/song_card.html' with song=song play_url_name='play_song' show_audio=True remove_label='Remove' remove_url_name='remove_favourite' %}
     {% endfor %}
   </div>
   {% else %}

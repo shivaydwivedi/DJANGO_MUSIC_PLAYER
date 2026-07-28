@@ -57,6 +57,8 @@ def build_smoke_checks(auth_user):
         SmokeCheck('protected:delete_playlist', 'delete_playlist', 'GET', reverse('delete_playlist', args=[999]), 'anonymous', 302),
         SmokeCheck('protected:add_song_to_playlist', 'add_song_to_playlist', 'GET', reverse('add_song_to_playlist', args=[999, 999]), 'anonymous', 302),
         SmokeCheck('protected:remove_song_from_playlist', 'remove_song_from_playlist', 'GET', reverse('remove_song_from_playlist', args=[999, 999]), 'anonymous', 302),
+        SmokeCheck('protected:add_favourite', 'add_favourite', 'GET', reverse('add_favourite', args=[999]), 'anonymous', 302),
+        SmokeCheck('protected:remove_favourite', 'remove_favourite', 'GET', reverse('remove_favourite', args=[999]), 'anonymous', 302),
         SmokeCheck('protected:detail', 'detail', 'GET', reverse('detail', args=[999]), 'anonymous', 302),
         SmokeCheck('protected:play_song', 'play_song', 'GET', reverse('play_song', args=[999]), 'anonymous', 302),
         SmokeCheck('protected:record_song_play', 'record_song_play', 'GET', reverse('record_song_play', args=[999]), 'anonymous', 302),
@@ -125,6 +127,8 @@ def build_smoke_checks(auth_user):
         SmokeCheck('post_only:add_song_to_playlist', 'add_song_to_playlist', 'GET', reverse('add_song_to_playlist', args=[999, 999]), 'authenticated', 405),
         SmokeCheck('post_only:remove_song_from_playlist', 'remove_song_from_playlist', 'GET', reverse('remove_song_from_playlist', args=[999, 999]), 'authenticated', 405),
         SmokeCheck('post_only:record_song_play', 'record_song_play', 'GET', reverse('record_song_play', args=[999]), 'authenticated', 405),
+        SmokeCheck('post_only:add_favourite', 'add_favourite', 'GET', reverse('add_favourite', args=[999]), 'authenticated', 405),
+        SmokeCheck('post_only:remove_favourite', 'remove_favourite', 'GET', reverse('remove_favourite', args=[999]), 'authenticated', 405),
         SmokeCheck(
             'playback_get:read_only',
             'play_song',
@@ -143,6 +147,28 @@ def build_smoke_checks(auth_user):
             read_only=False,
             post_data={'next': reverse('recent')},
             note='POST record-play route is the only playback history mutation path.',
+        ),
+        SmokeCheck(
+            'post:add_favourite',
+            'add_favourite',
+            'POST',
+            '',
+            'authenticated',
+            302,
+            read_only=False,
+            post_data={'next': reverse('favourite')},
+            note='POST add-favourite route is the only favourite creation/reactivation path.',
+        ),
+        SmokeCheck(
+            'post:remove_favourite',
+            'remove_favourite',
+            'POST',
+            '',
+            'authenticated',
+            302,
+            read_only=False,
+            post_data={},
+            note='POST remove-favourite route is the only favourite removal path.',
         ),
     ]
 
@@ -173,6 +199,17 @@ def _prepare_record_play_check(check):
     check.url = reverse('record_song_play', args=[song.id])
 
 
+def _prepare_add_favourite_check(check):
+    song = _create_smoke_song()
+    check.url = reverse('add_favourite', args=[song.id])
+
+
+def _prepare_remove_favourite_check(check, auth_user):
+    song = _create_smoke_song()
+    Favourite.objects.create(user=auth_user, song=song, is_fav=True)
+    check.url = reverse('remove_favourite', args=[song.id])
+
+
 def run_smoke_checks(expect_overrides=None):
     expect_overrides = expect_overrides or {}
     auth_user = User.objects.create_user(username='smoke-user', password='smoke-pass')
@@ -185,6 +222,10 @@ def run_smoke_checks(expect_overrides=None):
             _prepare_playback_check(check)
         elif check.key == 'post:record_song_play':
             _prepare_record_play_check(check)
+        elif check.key == 'post:add_favourite':
+            _prepare_add_favourite_check(check)
+        elif check.key == 'post:remove_favourite':
+            _prepare_remove_favourite_check(check, auth_user)
 
         client = Client(HTTP_HOST=http_host)
         if check.auth_state == 'authenticated':
