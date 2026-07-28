@@ -2,6 +2,9 @@
 # Keep this file to direct dependencies only; do not pin transitive packages
 # unless the application imports/configures them directly.
 Django==5.2.16
+dj-database-url==3.0.1
 django-allauth[socialaccount]==65.18.0
+psycopg[binary]==3.3.2
 python-decouple==3.8
 waitress==3.0.2
+whitenoise==6.11.0

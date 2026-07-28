@@ -159,3 +159,19 @@ Branch: `modernization/frontend-certification`
   mobile sizes.
 - Verify media fallback states, authenticated navigation, and collection pages.
 - Gate: screenshot/manual QA evidence plus existing backend checks.
+
+## Phase 16: PostgreSQL And Production Deployment
+
+Branch: `modernization/postgresql-deployment`
+
+- Status: in progress on `modernization/postgresql-deployment`.
+- Preserve SQLite as the local default while adding `DATABASE_URL` support for
+  PostgreSQL-backed production deployments.
+- Add production static serving through WhiteNoise and keep collected static
+  output ignored.
+- Keep Waitress as the WSGI server and add a minimal `PORT`-aware Procfile.
+- Document safe migration, collectstatic, media persistence, rollback, and
+  verification boundaries.
+- Gate: full tests, smoke harness, warning-mode checks, deployment checks,
+  collectstatic, migration planning, and no generated/static/media/secrets in
+  Git status.
