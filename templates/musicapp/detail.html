@@ -93,13 +93,12 @@
                 <section class="detail-action-card" aria-labelledby="favourite-action-title">
                     <h2 id="favourite-action-title">Favourite</h2>
                     <p class="favourite-status">{% if is_favourite %}This song is saved to your favourites.{% else %}Save this song to your favourites.{% endif %}</p>
-                    <form method="post">
+                    <form method="post" action="{% if is_favourite %}{% url 'remove_favourite' songs.id %}{% else %}{% url 'add_favourite' songs.id %}{% endif %}">
                         {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         {% if is_favourite %}
-                        <input type="hidden" name="favorite_action" value="remove">
                         <button type="submit" class="btn btn-danger">Remove from Favourites</button>
                         {% else %}
-                        <input type="hidden" name="favorite_action" value="add">
                         <button type="submit" class="btn btn-danger"><i class="fa fa-heart-o" aria-hidden="true"></i> Add to Favourites</button>
                         {% endif %}
                     </form>

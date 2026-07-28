@@ -145,17 +145,20 @@ class EmptyLibraryPageTests(TestCase):
         self.assertContains(response, 'Audio unavailable.')
         self.assertEqual(self._counts(), before)
 
-    def test_anonymous_favourite_page_requires_login(self):
+    def test_anonymous_favourite_routes_require_login(self):
         song = self._create_song()
         before = self._counts()
 
         get_response = self.client.get(reverse('favourite'))
-        post_response = self.client.post(reverse('favourite'), {'song_id': song.id})
+        add_response = self.client.post(reverse('add_favourite', args=[song.id]))
+        remove_response = self.client.post(reverse('remove_favourite', args=[song.id]))
 
         self.assertEqual(get_response.status_code, 302)
-        self.assertEqual(post_response.status_code, 302)
+        self.assertEqual(add_response.status_code, 302)
+        self.assertEqual(remove_response.status_code, 302)
         self.assertIn(reverse('login'), get_response['Location'])
-        self.assertIn(reverse('login'), post_response['Location'])
+        self.assertIn(reverse('login'), add_response['Location'])
+        self.assertIn(reverse('login'), remove_response['Location'])
         self.assertEqual(self._counts(), before)
 
     def test_detail_get_does_not_create_favourite(self):
@@ -168,19 +171,122 @@ class EmptyLibraryPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Favourite.objects.count(), 0)
 
-    def test_detail_add_favourite_is_idempotent(self):
+    def test_detail_get_does_not_remove_favourite(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._counts(), before)
+        self.assertTrue(Favourite.objects.filter(user=user, song=song, is_fav=True).exists())
+
+    def test_favourite_page_get_does_not_mutate_favourites(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.get(reverse('favourite'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._counts(), before)
+
+    def test_catalog_gets_do_not_mutate_favourites(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+
+        for url in [reverse('index'), reverse('all_songs')]:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(self._counts(), before)
+
+    def test_favourite_mutation_routes_are_post_only_for_authenticated_user(self):
         user = User.objects.create_user(username='listener', password='secret-pass')
         song = self._create_song()
         self.client.force_login(user)
 
-        first_response = self.client.post(reverse('detail', args=[song.id]), {'favorite_action': 'add'})
-        second_response = self.client.post(reverse('detail', args=[song.id]), {'favorite_action': 'add'})
+        for url in [reverse('add_favourite', args=[song.id]), reverse('remove_favourite', args=[song.id])]:
+            with self.subTest(url=url):
+                before = self._counts()
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 405)
+                self.assertEqual(self._counts(), before)
+
+    def test_add_favourite_is_idempotent(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        first_response = self.client.post(reverse('add_favourite', args=[song.id]))
+        second_response = self.client.post(reverse('add_favourite', args=[song.id]))
 
         self.assertEqual(first_response.status_code, 302)
         self.assertEqual(second_response.status_code, 302)
         self.assertEqual(Favourite.objects.filter(user=user, song=song, is_fav=True).count(), 1)
+        self.assertEqual(Favourite.objects.filter(user=user, song=song).count(), 1)
 
-    def test_detail_remove_favourite_is_scoped_to_current_user(self):
+    def test_add_favourite_reactivates_false_row_and_cleans_duplicate_current_user_rows(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
+        song = self._create_song()
+        Favourite.objects.create(user=user, song=song, is_fav=False)
+        Favourite.objects.create(user=user, song=song, is_fav=False)
+        other_favourite = Favourite.objects.create(user=other_user, song=song, is_fav=True)
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('add_favourite', args=[song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Favourite.objects.filter(user=user, song=song, is_fav=True).count(), 1)
+        self.assertEqual(Favourite.objects.filter(user=user, song=song).count(), 1)
+        self.assertTrue(Favourite.objects.filter(id=other_favourite.id, is_fav=True).exists())
+
+    def test_add_favourite_invalid_song_id_returns_404_without_mutation(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.post(reverse('add_favourite', args=[999]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self._counts(), before)
+        self.assertTrue(Song.objects.filter(id=song.id).exists())
+
+    def test_add_favourite_uses_safe_redirect_or_detail_fallback(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        safe_response = self.client.post(reverse('add_favourite', args=[song.id]), {'next': reverse('all_songs')})
+        blank_response = self.client.post(reverse('add_favourite', args=[song.id]), {'next': ''})
+        missing_response = self.client.post(reverse('add_favourite', args=[song.id]))
+        external_response = self.client.post(
+            reverse('add_favourite', args=[song.id]),
+            {'next': 'https://example.com/steal'},
+        )
+        protocol_relative_response = self.client.post(
+            reverse('add_favourite', args=[song.id]),
+            {'next': '//example.com/steal'},
+        )
+
+        self.assertEqual(safe_response['Location'], reverse('all_songs'))
+        self.assertEqual(blank_response['Location'], reverse('detail', args=[song.id]))
+        self.assertEqual(missing_response['Location'], reverse('detail', args=[song.id]))
+        self.assertEqual(external_response['Location'], reverse('detail', args=[song.id]))
+        self.assertEqual(protocol_relative_response['Location'], reverse('detail', args=[song.id]))
+
+    def test_remove_favourite_is_scoped_to_current_user_and_preserves_song(self):
         owner = User.objects.create_user(username='owner', password='secret-pass')
         other_user = User.objects.create_user(username='other-listener', password='secret-pass')
         song = self._create_song()
@@ -188,11 +294,53 @@ class EmptyLibraryPageTests(TestCase):
         Favourite.objects.create(user=other_user, song=song, is_fav=True)
         self.client.force_login(owner)
 
-        response = self.client.post(reverse('detail', args=[song.id]), {'favorite_action': 'remove'})
+        response = self.client.post(reverse('remove_favourite', args=[song.id]))
 
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Favourite.objects.filter(user=owner, song=song, is_fav=True).exists())
         self.assertTrue(Favourite.objects.filter(user=other_user, song=song, is_fav=True).exists())
+        self.assertTrue(Song.objects.filter(id=song.id).exists())
+
+    def test_remove_missing_favourite_does_not_crash(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        response = self.client.post(reverse('remove_favourite', args=[song.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Favourite.objects.filter(user=user, song=song).exists())
+
+    def test_remove_favourite_invalid_song_id_returns_404_without_mutation(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+        before = self._counts()
+
+        response = self.client.post(reverse('remove_favourite', args=[999]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self._counts(), before)
+        self.assertTrue(Song.objects.filter(id=song.id).exists())
+
+    def test_remove_favourite_uses_safe_redirect_or_favourite_fallback(self):
+        user = User.objects.create_user(username='listener', password='secret-pass')
+        song = self._create_song()
+        self.client.force_login(user)
+
+        safe_response = self.client.post(reverse('remove_favourite', args=[song.id]), {'next': reverse('all_songs')})
+        blank_response = self.client.post(reverse('remove_favourite', args=[song.id]), {'next': ''})
+        missing_response = self.client.post(reverse('remove_favourite', args=[song.id]))
+        external_response = self.client.post(
+            reverse('remove_favourite', args=[song.id]),
+            {'next': 'https://example.com/steal'},
+        )
+
+        self.assertEqual(safe_response['Location'], reverse('all_songs'))
+        self.assertEqual(blank_response['Location'], reverse('favourite'))
+        self.assertEqual(missing_response['Location'], reverse('favourite'))
+        self.assertEqual(external_response['Location'], reverse('favourite'))
 
     def test_favourite_page_lists_only_current_user_songs(self):
         owner = User.objects.create_user(username='owner', password='secret-pass')
@@ -208,34 +356,6 @@ class EmptyLibraryPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Owner Favourite')
         self.assertNotContains(response, 'Other Favourite')
-
-    def test_favourite_remove_requires_valid_song_id(self):
-        user = User.objects.create_user(username='listener', password='secret-pass')
-        self.client.force_login(user)
-
-        for payload, expected_status in [
-            ({}, 400),
-            ({'song_id': 'abc'}, 400),
-            ({'song_id': '999'}, 404),
-        ]:
-            with self.subTest(payload=payload):
-                before = self._counts()
-                response = self.client.post(reverse('favourite'), payload)
-                self.assertEqual(response.status_code, expected_status)
-                self.assertEqual(self._counts(), before)
-
-    def test_favourite_remove_does_not_delete_another_users_record(self):
-        owner = User.objects.create_user(username='owner', password='secret-pass')
-        other_user = User.objects.create_user(username='other-listener', password='secret-pass')
-        song = self._create_song()
-        Favourite.objects.create(user=owner, song=song, is_fav=True)
-        self.client.force_login(other_user)
-
-        response = self.client.post(reverse('favourite'), {'song_id': song.id})
-
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(Favourite.objects.filter(user=owner, song=song, is_fav=True).exists())
-        self.assertFalse(Favourite.objects.filter(user=other_user, song=song, is_fav=True).exists())
 
     def test_anonymous_playlist_pages_require_login(self):
         song = self._create_song()
@@ -960,6 +1080,20 @@ class EmptyLibraryPageTests(TestCase):
         self.assertContains(response, 'Audio unavailable.')
         self.assertEqual(self._counts(), before)
 
+    def test_detail_favourite_add_form_posts_with_csrf_and_no_mutation_anchor(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Detail Favourite Form Song')
+        self.client.force_login(user)
+        add_url = reverse('add_favourite', args=[song.id])
+
+        response = self.client.get(reverse('detail', args=[song.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'method="post" action="{}"'.format(add_url))
+        self.assertContains(response, 'csrfmiddlewaretoken')
+        self.assertContains(response, 'Add to Favourites')
+        self.assertNotContains(response, 'href="{}"'.format(add_url))
+
     def test_blank_media_song_renders_safely_on_favourite_page(self):
         user = User.objects.create_user(username='media-listener', password='secret-pass')
         song = self._create_song_with_media_state('Blank Favourite Media Song')
@@ -972,6 +1106,22 @@ class EmptyLibraryPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Audio unavailable.')
         self.assertEqual(self._counts(), before)
+
+    def test_favourite_page_remove_form_posts_with_csrf_and_no_mutation_anchor(self):
+        user = User.objects.create_user(username='media-listener', password='secret-pass')
+        song = self._create_song_with_media_state('Favourite Remove Form Song')
+        Favourite.objects.create(user=user, song=song, is_fav=True)
+        self.client.force_login(user)
+        remove_url = reverse('remove_favourite', args=[song.id])
+
+        response = self.client.get(reverse('favourite'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'method="post"')
+        self.assertContains(response, 'action="{}"'.format(remove_url))
+        self.assertContains(response, 'csrfmiddlewaretoken')
+        self.assertContains(response, 'Remove')
+        self.assertNotContains(response, 'href="{}"'.format(remove_url))
 
     def test_blank_media_song_renders_safely_on_playlist_songs_page(self):
         user = User.objects.create_user(username='media-listener', password='secret-pass')
