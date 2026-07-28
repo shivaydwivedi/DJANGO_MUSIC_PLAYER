@@ -121,12 +121,24 @@ Branch: `modernization/recent-uniqueness-planning`
 
 ## Phase 7: Upload and Media Validation
 
-Branch: `modernization/media-validation`
+Branch: `modernization/media-upload-validation`
 
-- Add file extension, size, and content validation.
-- Decide storage behavior for production.
-- Preserve missing-media fallbacks.
-- Gate: malicious/invalid upload tests and admin smoke tests.
+- Status: complete on `modernization/media-upload-validation`.
+- Add focused extension and size validation for Song cover/audio uploads.
+- Keep `FileField` storage compatibility because Pillow is not installed and
+  root-level media paths must not be moved.
+- Explicitly allow blank media fields for existing demo and missing-media rows.
+- Gate: upload validation tests, missing-media regressions, full suite, and
+  smoke harness.
+
+## Favourite Integrity Follow-Up
+
+Branch: `modernization/song-admin-upload-ux`
+
+- Improve the Django Admin Song upload experience with clearer help text and
+  field grouping.
+- Preserve the Phase 15 validation contract and root-level media compatibility.
+- Gate: admin form tests, full suite, and smoke harness.
 
 ## Phase 8: Observability
 

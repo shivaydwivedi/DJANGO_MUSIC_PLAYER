@@ -2,7 +2,10 @@ import shutil
 import tempfile
 from io import StringIO
 
+from django import forms
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
@@ -17,6 +20,12 @@ from musicapp.management.commands.recovery_smoke_test import (
 )
 
 from .models import Favourite, Playlist, PlaylistContainer, PlaylistSong, Recent, Song
+from .validators import (
+    ALLOWED_AUDIO_EXTENSIONS,
+    ALLOWED_COVER_EXTENSIONS,
+    DEFAULT_MAX_AUDIO_UPLOAD_SIZE,
+    DEFAULT_MAX_COVER_UPLOAD_SIZE,
+)
 
 
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
@@ -71,6 +80,120 @@ class EmptyLibraryPageTests(TestCase):
                 content_type='audio/mpeg',
             )
         return Song.objects.create(**kwargs)
+
+    def _unsaved_song(self, name='Validation Song', song_img='', song_file=''):
+        return Song(
+            name=name,
+            album='Validation Album',
+            language='English',
+            year=2026,
+            singer='Validation Singer',
+            song_img=song_img,
+            song_file=song_file,
+        )
+
+    def test_song_upload_validation_accepts_supported_audio_extensions(self):
+        for extension in sorted(ALLOWED_AUDIO_EXTENSIONS):
+            with self.subTest(extension=extension):
+                song = self._unsaved_song(
+                    song_file=SimpleUploadedFile(
+                        'track{0}'.format(extension),
+                        b'audio-bytes',
+                        content_type='application/octet-stream',
+                    )
+                )
+                song.full_clean()
+
+    def test_song_upload_validation_rejects_unsupported_audio_extensions(self):
+        for filename in ['track.exe', 'track.mp3.exe', 'track.txt']:
+            with self.subTest(filename=filename):
+                song = self._unsaved_song(
+                    song_file=SimpleUploadedFile(
+                        filename,
+                        b'audio-bytes',
+                        content_type='audio/mpeg',
+                    )
+                )
+                with self.assertRaisesMessage(ValidationError, 'Song audio must use one of these file extensions'):
+                    song.full_clean()
+
+    def test_song_upload_validation_accepts_supported_cover_extensions(self):
+        for extension in sorted(ALLOWED_COVER_EXTENSIONS):
+            with self.subTest(extension=extension):
+                song = self._unsaved_song(
+                    song_img=SimpleUploadedFile(
+                        'cover{0}'.format(extension),
+                        b'cover-bytes',
+                        content_type='application/octet-stream',
+                    )
+                )
+                song.full_clean()
+
+    def test_song_upload_validation_rejects_unsupported_cover_extensions(self):
+        for filename in ['cover.svg', 'cover.jpg.exe', 'cover.gif']:
+            with self.subTest(filename=filename):
+                song = self._unsaved_song(
+                    song_img=SimpleUploadedFile(
+                        filename,
+                        b'cover-bytes',
+                        content_type='image/jpeg',
+                    )
+                )
+                with self.assertRaisesMessage(ValidationError, 'Song cover must use one of these file extensions'):
+                    song.full_clean()
+
+    @override_settings(SONICA_MAX_AUDIO_UPLOAD_SIZE=4)
+    def test_song_upload_validation_rejects_audio_over_configured_size_limit(self):
+        song = self._unsaved_song(
+            song_file=SimpleUploadedFile('track.mp3', b'12345', content_type='audio/mpeg')
+        )
+
+        with self.assertRaisesMessage(ValidationError, 'Song audio must be'):
+            song.full_clean()
+
+    @override_settings(SONICA_MAX_COVER_UPLOAD_SIZE=4)
+    def test_song_upload_validation_rejects_cover_over_configured_size_limit(self):
+        song = self._unsaved_song(
+            song_img=SimpleUploadedFile('cover.jpg', b'12345', content_type='image/jpeg')
+        )
+
+        with self.assertRaisesMessage(ValidationError, 'Song cover must be'):
+            song.full_clean()
+
+    def test_song_upload_validation_allows_blank_existing_media_fields(self):
+        song = self._unsaved_song(song_img='', song_file='')
+
+        song.full_clean()
+
+    def test_song_modelform_applies_upload_validation(self):
+        SongForm = forms.modelform_factory(
+            Song,
+            fields=['name', 'album', 'language', 'song_img', 'year', 'singer', 'song_file'],
+        )
+        form = SongForm(
+            data={
+                'name': 'Form Validation Song',
+                'album': 'Validation Album',
+                'language': 'English',
+                'year': 2026,
+                'singer': 'Validation Singer',
+            },
+            files={
+                'song_img': SimpleUploadedFile('cover.png', b'cover-bytes', content_type='image/png'),
+                'song_file': SimpleUploadedFile('track.exe', b'audio-bytes', content_type='audio/mpeg'),
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('Song audio must use one of these file extensions', str(form.errors))
+
+    def test_song_upload_validation_does_not_use_real_project_media_root_in_tests(self):
+        self.assertEqual(settings.MEDIA_ROOT, TEST_MEDIA_ROOT)
+        self.assertNotIn('music-player-recovery\\media', settings.MEDIA_ROOT)
+
+    def test_song_upload_validation_default_size_limits_are_documented_values(self):
+        self.assertEqual(DEFAULT_MAX_AUDIO_UPLOAD_SIZE, 20 * 1024 * 1024)
+        self.assertEqual(DEFAULT_MAX_COVER_UPLOAD_SIZE, 5 * 1024 * 1024)
 
     def test_anonymous_public_pages_render_with_empty_library(self):
         routes = [
