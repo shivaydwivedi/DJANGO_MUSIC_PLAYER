@@ -1,6 +1,9 @@
 import os
+import sys
+import tempfile
 from urllib.parse import urlparse
 
+import dj_database_url
 from decouple import config
 from django.core.exceptions import ImproperlyConfigured
 
@@ -8,6 +11,7 @@ from django.core.exceptions import ImproperlyConfigured
 # Authoritative Sonica settings module for local development and test runs.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_SECRET_KEY = 'sonica-local-development-secret-key'
+RUNNING_TESTS = any(arg == 'test' for arg in sys.argv)
 
 
 def parse_csv(value):
@@ -109,6 +113,7 @@ validate_runtime_settings(
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+PORT = config('PORT', default='8000')
 # Application definition
 
 INSTALLED_APPS = [
@@ -133,6 +138,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -163,12 +169,31 @@ TEMPLATES = [
 WSGI_APPLICATION = 'musicplayer.wsgi.application'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    },
-}
+DATABASE_URL = config('DATABASE_URL', default='')
+DATABASE_CONN_MAX_AGE = parse_non_negative_int(
+    config('DATABASE_CONN_MAX_AGE', default='60' if DATABASE_URL else '0'),
+    'DATABASE_CONN_MAX_AGE',
+)
+DATABASE_SSL_REQUIRE = config('DATABASE_SSL_REQUIRE', default=False, cast=bool)
+
+if DATABASE_URL:
+    try:
+        DATABASES = {
+            'default': dj_database_url.parse(
+                DATABASE_URL,
+                conn_max_age=DATABASE_CONN_MAX_AGE,
+                ssl_require=DATABASE_SSL_REQUIRE,
+            ),
+        }
+    except ValueError as exc:
+        raise ImproperlyConfigured('DATABASE_URL must be a valid database URL.') from exc
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        },
+    }
 
 
 # Password validation
@@ -207,9 +232,38 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
+STATICFILES_STORAGE_BACKEND = (
+    'django.contrib.staticfiles.storage.StaticFilesStorage'
+    if DEBUG
+    else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+)
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': STATICFILES_STORAGE_BACKEND,
+    },
+}
+WHITENOISE_USE_FINDERS = DEBUG
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_MANIFEST_STRICT = not DEBUG
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = (
+    os.path.join(tempfile.gettempdir(), 'sonica-test-media')
+    if RUNNING_TESTS
+    else os.path.join(BASE_DIR, 'media')
+)
 MEDIA_URL = '/media/'
+
+SONICA_MAX_AUDIO_UPLOAD_SIZE = parse_non_negative_int(
+    config('SONICA_MAX_AUDIO_UPLOAD_SIZE', default=str(20 * 1024 * 1024)),
+    'SONICA_MAX_AUDIO_UPLOAD_SIZE',
+)
+SONICA_MAX_COVER_UPLOAD_SIZE = parse_non_negative_int(
+    config('SONICA_MAX_COVER_UPLOAD_SIZE', default=str(5 * 1024 * 1024)),
+    'SONICA_MAX_COVER_UPLOAD_SIZE',
+)
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",

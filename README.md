@@ -72,6 +72,7 @@ SECRET_KEY=replace-with-a-long-random-secret-key
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1,[::1]
 CSRF_TRUSTED_ORIGINS=
+DATABASE_URL=
 ENABLE_GOOGLE_AUTH=False
 ```
 
@@ -80,6 +81,12 @@ The supported settings module is `musicplayer.settings`. `ALLOWED_HOSTS` and
 `http://` or `https://`. Local development uses safe defaults when `DEBUG=True`.
 For production-like runs with `DEBUG=False`, set a real `SECRET_KEY` and
 non-empty `ALLOWED_HOSTS`.
+
+Local development uses SQLite when `DATABASE_URL` is blank. Production
+deployments should set `DATABASE_URL` to a PostgreSQL connection string stored
+in the deployment platform, not in the repository. `DATABASE_SSL_REQUIRE=True`
+can be used when the PostgreSQL provider requires SSL, and
+`DATABASE_CONN_MAX_AGE` controls persistent connection lifetime.
 
 Production HTTPS settings are environment-driven. Enable
 `SESSION_COOKIE_SECURE=True` and `CSRF_COOKIE_SECURE=True` for HTTPS
@@ -108,6 +115,12 @@ Waitress:
 
 ```powershell
 .\.venv-django52\Scripts\waitress-serve.exe --listen=0.0.0.0:8000 musicplayer.wsgi:application
+```
+
+Platform deployments can use the Procfile start command, which honors `PORT`:
+
+```text
+web: waitress-serve --listen=0.0.0.0:${PORT:-8000} musicplayer.wsgi:application
 ```
 
 Keep `runserver` for local development only.
@@ -162,9 +175,15 @@ Run the recovery smoke harness:
 For production-like configuration checks, run `manage.py check --deploy` with
 temporary environment values and do not record real secrets in repository files.
 
-Static files are ready for `collectstatic` through `STATIC_ROOT=staticfiles`.
+Static files are ready for `collectstatic` through `STATIC_ROOT=staticfiles` and
+WhiteNoise compressed manifest storage:
+
+```powershell
+.\.venv-django52\Scripts\python.exe manage.py collectstatic --noinput
+```
+
 Django does not safely serve uploaded production media by itself; deployment
-media storage remains a later platform-specific task.
+media storage needs a durable persistent disk or object storage provider.
 
 Deployment readiness helpers:
 
@@ -174,6 +193,9 @@ Deployment readiness helpers:
 
 Operational probes are available at `/health/` and `/ready/`. Health only checks
 that Django is responding; readiness also checks database connectivity.
+
+PostgreSQL deployment details are documented in
+[docs/modernization/25_POSTGRESQL_DEPLOYMENT.md](docs/modernization/25_POSTGRESQL_DEPLOYMENT.md).
 
 Expected recovery baseline:
 

@@ -28,6 +28,12 @@ Production start command:
 .\.venv-django52\Scripts\waitress-serve.exe --listen=0.0.0.0:8000 musicplayer.wsgi:application
 ```
 
+Provider-neutral Procfile start command:
+
+```text
+web: waitress-serve --listen=0.0.0.0:${PORT:-8000} musicplayer.wsgi:application
+```
+
 Local development still uses:
 
 ```powershell
@@ -74,6 +80,10 @@ Platform-neutral release order:
 | `DEBUG` | optional | `True` | `False` | boolean | `True` exposes debug details. |
 | `SECRET_KEY` | production yes | local fallback | long random secret | string | Weak secrets break signing security. |
 | `ALLOWED_HOSTS` | production yes | local hosts | exact domains | comma-separated hosts | Empty fails; wildcard weakens host protection. |
+| `DATABASE_URL` | production yes | empty SQLite fallback | PostgreSQL connection URL | URL | Missing production database keeps the app on local SQLite. |
+| `DATABASE_CONN_MAX_AGE` | optional | `0` without `DATABASE_URL`; `60` with it | provider-appropriate lifetime | non-negative integer | Too high can hold stale connections. |
+| `DATABASE_SSL_REQUIRE` | optional | `False` | `True` when provider requires SSL | boolean | Bad value can break or weaken database transport. |
+| `PORT` | optional | `8000` | platform-provided port | integer-like string | Wrong port prevents the platform router from reaching the app. |
 | `CSRF_TRUSTED_ORIGINS` | optional | empty | HTTPS deployment origins if needed | comma-separated origins | Bad origins can break or weaken CSRF protection. |
 | `ENABLE_GOOGLE_AUTH` | optional | `False` | only true with real SocialApp | boolean | True alone does not configure OAuth. |
 | `SECURE_SSL_REDIRECT` | optional | `False` | `True` unless proxy redirects | boolean | HTTP traffic may stay unencrypted. |
@@ -118,9 +128,9 @@ Collected static output goes to `STATIC_ROOT=staticfiles`, which is separate
 from source static directories. `collectstatic --dry-run` succeeds. Collected
 files are not committed.
 
-Django serves static files only in development through `DEBUG=True` URL helpers.
-In production, the deployment platform, reverse proxy, or static-file service
-must serve collected files. WhiteNoise was not added in this phase.
+WhiteNoise is now configured for production static files with compressed
+manifest storage. Django serves static files through URL helpers only in
+development when `DEBUG=True`; production static responses come from WhiteNoise.
 
 ## Uploaded Media
 
@@ -134,18 +144,20 @@ separate deployment concerns.
 
 ## Database Strategy
 
-SQLite remains the active database for local development and controlled demo
-use. It is file-based, assumes a single writable instance, has write concurrency
-limits, and is unsafe on ephemeral filesystems without explicit backup/restore
-handling.
+SQLite remains the active database for local development and controlled demo use
+when `DATABASE_URL` is blank. It is file-based, assumes a single writable
+instance, has write concurrency limits, and is unsafe on ephemeral filesystems
+without explicit backup/restore handling.
 
-PostgreSQL is required before multi-user or horizontally scaled production
-deployment.
+PostgreSQL is selected by setting `DATABASE_URL`. `dj-database-url` parses the
+URL, `psycopg` 3 provides the driver, `DATABASE_CONN_MAX_AGE` controls
+persistent connections, and `DATABASE_SSL_REQUIRE=True` enables provider-required
+SSL mode.
 
-Exact future branch:
+Detailed Phase 16 deployment documentation:
 
 ```text
-modernization/postgresql
+docs/modernization/25_POSTGRESQL_DEPLOYMENT.md
 ```
 
 ## Google Authentication
@@ -167,9 +179,10 @@ Added:
 ```
 
 The command is non-destructive. It verifies `DEBUG=False`, allowed hosts,
-`STATIC_ROOT`, `MEDIA_ROOT`, health/readiness URL resolution, Django deployment
-checks, and absence of pending migrations. It prints PASS/FAIL without secrets
-and exits non-zero on failure.
+`DATABASE_URL` presence for production deployment, `STATIC_ROOT`, `MEDIA_ROOT`,
+WhiteNoise static configuration, health/readiness URL resolution, Django
+deployment checks, and absence of pending migrations. It prints PASS/FAIL and
+media durability warnings without secrets and exits non-zero on failure.
 
 ## Backup Plan
 
@@ -199,7 +212,8 @@ Do not assume all migrations are reversible until reviewed.
 ## Unresolved Blockers
 
 - No hosting provider selected.
-- PostgreSQL support is not implemented.
+- Actual PostgreSQL connectivity and migration execution remain unverified until
+  a disposable PostgreSQL instance is used.
 - Persistent uploaded-media storage is not implemented.
 - Static serving is delegated to the future platform/reverse proxy.
 - OAuth production credentials and domain configuration are not set.
@@ -207,9 +221,9 @@ Do not assume all migrations are reversible until reviewed.
 
 ## Exact Next Branch
 
-`modernization/postgresql`
+`modernization/portfolio-release-polish`
 
 ## Exact Next Task
 
-Add PostgreSQL configuration support and migration rehearsal while preserving
-SQLite for local development.
+Final README, screenshots, architecture diagram, recruiter-focused project
+presentation, and deployment documentation polish.
