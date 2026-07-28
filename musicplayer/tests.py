@@ -148,6 +148,88 @@ class DeploymentReadinessTests(TestCase):
         self.assertIn('require', result.stdout)
         self.assertNotIn('secret-password', result.stdout)
 
+    def test_render_external_hostname_is_allowed_without_wildcard_hosts(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'RENDER_EXTERNAL_HOSTNAME': 'sonica-music-player.onrender.com',
+            },
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.ALLOWED_HOSTS); '
+                'print(settings.CSRF_TRUSTED_ORIGINS)'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('sonica-music-player.onrender.com', result.stdout)
+        self.assertIn('https://sonica-music-player.onrender.com', result.stdout)
+        self.assertNotIn("'*'", result.stdout)
+
+    def test_render_external_hostname_parses_url_style_value(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'example.com',
+                'RENDER_EXTERNAL_HOSTNAME': 'https://sonica-music-player.onrender.com',
+            },
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.RENDER_EXTERNAL_HOSTNAME); '
+                'print(settings.CSRF_TRUSTED_ORIGINS)'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('sonica-music-player.onrender.com', result.stdout)
+        self.assertIn('https://sonica-music-player.onrender.com', result.stdout)
+
+    def test_render_https_proxy_settings_import_cleanly(self):
+        result = self._settings_probe(
+            {
+                'DEBUG': 'False',
+                'SECRET_KEY': PRODUCTION_TEST_SECRET,
+                'ALLOWED_HOSTS': 'sonica-music-player.onrender.com',
+                'RENDER_EXTERNAL_HOSTNAME': 'sonica-music-player.onrender.com',
+                'DATABASE_URL': 'postgresql://sonica:secret-password@db.example.com:5432/sonica',
+                'SECURE_SSL_REDIRECT': 'True',
+                'SESSION_COOKIE_SECURE': 'True',
+                'CSRF_COOKIE_SECURE': 'True',
+                'SECURE_HSTS_SECONDS': '0',
+                'TRUST_X_FORWARDED_PROTO': 'True',
+            },
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.SECURE_SSL_REDIRECT); '
+                'print(settings.SESSION_COOKIE_SECURE); '
+                'print(settings.CSRF_COOKIE_SECURE); '
+                'print(settings.SECURE_HSTS_SECONDS); '
+                'print(settings.SECURE_PROXY_SSL_HEADER)'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("True\nTrue\nTrue\n0\n('HTTP_X_FORWARDED_PROTO', 'https')", result.stdout)
+
+    def test_render_blueprint_uses_safe_configuration(self):
+        render_yaml = (PROJECT_ROOT / 'render.yaml').read_text()
+
+        self.assertIn('type: web', render_yaml)
+        self.assertIn('runtime: python', render_yaml)
+        self.assertIn('name: sonica-postgres', render_yaml)
+        self.assertIn('healthCheckPath: /health/', render_yaml)
+        self.assertIn('generateValue: true', render_yaml)
+        self.assertIn('property: connectionString', render_yaml)
+        self.assertIn('bash scripts/render-build.sh', render_yaml)
+        self.assertIn('bash scripts/render-start.sh', render_yaml)
+        self.assertNotIn('SECRET_KEY=', render_yaml)
+        self.assertNotIn('postgresql://', render_yaml)
+        self.assertNotIn('disk:', render_yaml)
+        self.assertNotIn('*.onrender.com', render_yaml)
+
     def test_invalid_database_url_fails_clearly_without_credentials(self):
         result = self._settings_probe(
             {
@@ -231,9 +313,9 @@ class DeploymentReadinessTests(TestCase):
         SECURE_SSL_REDIRECT=True,
         SESSION_COOKIE_SECURE=True,
         CSRF_COOKIE_SECURE=True,
-        SECURE_HSTS_SECONDS=3600,
-        SECURE_HSTS_INCLUDE_SUBDOMAINS=True,
-        SECURE_HSTS_PRELOAD=True,
+        SECURE_HSTS_SECONDS=0,
+        SECURE_HSTS_INCLUDE_SUBDOMAINS=False,
+        SECURE_HSTS_PRELOAD=False,
     )
     def test_deployment_readiness_command_passes_with_safe_production_settings(self):
         out = StringIO()
@@ -241,6 +323,7 @@ class DeploymentReadinessTests(TestCase):
         call_command('deployment_readiness_check', stdout=out)
 
         self.assertIn('PASS: deployment readiness checks passed.', out.getvalue())
+        self.assertIn('WARN: HSTS is disabled', out.getvalue())
         self.assertIn('WARN: uploaded media needs durable production storage', out.getvalue())
 
     @override_settings(DEBUG=True)

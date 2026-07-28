@@ -205,10 +205,10 @@ Run deployment checks with safe production environment values:
 Production start command:
 
 ```text
-web: waitress-serve --listen=0.0.0.0:${PORT:-8000} musicplayer.wsgi:application
+web: bash scripts/render-start.sh
 ```
 
-Deployment details are documented in [docs/modernization/25_POSTGRESQL_DEPLOYMENT.md](docs/modernization/25_POSTGRESQL_DEPLOYMENT.md).
+Render deployment details are documented in [docs/deployment/RENDER_DEPLOYMENT.md](docs/deployment/RENDER_DEPLOYMENT.md). PostgreSQL deployment design notes are documented in [docs/modernization/25_POSTGRESQL_DEPLOYMENT.md](docs/modernization/25_POSTGRESQL_DEPLOYMENT.md).
 
 ## Project Structure
 

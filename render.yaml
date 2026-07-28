@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: sonica-music-player
+    runtime: python
+    plan: free
+    region: singapore
+    branch: deployment/production-launch
+    buildCommand: bash scripts/render-build.sh
+    startCommand: bash scripts/render-start.sh
+    healthCheckPath: /health/
+    autoDeployTrigger: commit
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sonica-postgres
+          property: connectionString
+      - key: DATABASE_CONN_MAX_AGE
+        value: "60"
+      - key: DATABASE_SSL_REQUIRE
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: sonica-music-player.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://sonica-music-player.onrender.com
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+      - key: CSRF_COOKIE_SECURE
+        value: "True"
+      - key: SECURE_HSTS_SECONDS
+        value: "0"
+      - key: TRUST_X_FORWARDED_PROTO
+        value: "True"
+      - key: ENABLE_GOOGLE_AUTH
+        value: "False"
+      - key: SONICA_MAX_AUDIO_UPLOAD_SIZE
+        value: "20971520"
+      - key: SONICA_MAX_COVER_UPLOAD_SIZE
+        value: "5242880"
+
+databases:
+  - name: sonica-postgres
+    plan: free
+    region: singapore

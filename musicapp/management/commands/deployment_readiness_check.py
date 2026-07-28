@@ -36,8 +36,15 @@ class Command(BaseCommand):
                 failures.append('{0} endpoint must resolve.'.format(route_name))
 
         deploy_issues = run_checks(include_deployment_checks=True)
-        if deploy_issues:
+        blocking_deploy_issues = [
+            issue
+            for issue in deploy_issues
+            if issue.id != 'security.W004'
+        ]
+        if blocking_deploy_issues:
             failures.append('Django deployment checks must pass.')
+        if any(issue.id == 'security.W004' for issue in deploy_issues):
+            warnings.append('HSTS is disabled; enable it only after HTTPS is verified.')
 
         try:
             connection = connections[DEFAULT_DB_ALIAS]

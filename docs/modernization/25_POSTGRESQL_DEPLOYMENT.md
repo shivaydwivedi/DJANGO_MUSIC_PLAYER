@@ -95,6 +95,12 @@ backup/export/import process on copied data first.
 This phase did not execute migrations against a real PostgreSQL server unless
 explicitly reported in the completion notes.
 
+For the initial Render free-tier deployment, migrations run from
+`scripts/render-build.sh` because Render pre-deploy commands are available for
+paid web services. For a paid long-lived deployment, move migrations to a
+pre-deploy command so schema changes are clearly separated from static/build
+work.
+
 ## Static Files
 
 WhiteNoise is configured through:
@@ -116,8 +122,10 @@ Collect static files during release:
 Provider-neutral Procfile command:
 
 ```text
-web: waitress-serve --listen=0.0.0.0:${PORT:-8000} musicplayer.wsgi:application
+web: bash scripts/render-start.sh
 ```
+
+The Render start script binds Waitress to `0.0.0.0:${PORT:-10000}`.
 
 Local development continues to use `runserver`.
 

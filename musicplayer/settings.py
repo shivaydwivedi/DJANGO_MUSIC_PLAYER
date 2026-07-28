@@ -21,6 +21,19 @@ def parse_csv(value):
     return [item.strip() for item in value.split(',') if item.strip()]
 
 
+def render_hostname():
+    hostname = config('RENDER_EXTERNAL_HOSTNAME', default='').strip()
+    parsed = urlparse(hostname)
+    return parsed.netloc or parsed.path
+
+
+def render_external_url():
+    hostname = render_hostname()
+    if not hostname:
+        return ''
+    return 'https://{0}'.format(hostname)
+
+
 def parse_non_negative_int(value, setting_name):
     try:
         parsed = int(value)
@@ -79,9 +92,15 @@ SECRET_KEY = config('SECRET_KEY', default=LOCAL_SECRET_KEY)
 ALLOWED_HOSTS = parse_csv(
     config('ALLOWED_HOSTS', default='localhost,127.0.0.1,[::1],testserver')
 )
+RENDER_EXTERNAL_HOSTNAME = render_hostname()
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 CSRF_TRUSTED_ORIGINS = parse_csrf_trusted_origins(
     config('CSRF_TRUSTED_ORIGINS', default='')
 )
+RENDER_EXTERNAL_URL = render_external_url()
+if RENDER_EXTERNAL_URL and RENDER_EXTERNAL_URL not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(RENDER_EXTERNAL_URL)
 
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)
