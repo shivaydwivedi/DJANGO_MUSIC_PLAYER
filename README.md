@@ -38,15 +38,15 @@ No screenshot files are committed with this repository. For a portfolio README o
 
 Recommended captures:
 
-| View | Suggested filename |
-| --- | --- |
-| Anonymous desktop home | `docs/screenshots/home-anonymous-desktop.png` |
-| Authenticated desktop home | `docs/screenshots/home-authenticated-desktop.png` |
-| Mobile home with collapsed navigation | `docs/screenshots/home-mobile.png` |
-| Expanded mobile navigation | `docs/screenshots/mobile-navigation-expanded.png` |
-| Song detail and player | `docs/screenshots/song-detail-player.png` |
-| Empty library state | `docs/screenshots/empty-library.png` |
-| Missing cover fallback | `docs/screenshots/missing-cover-card.png` |
+| View                                  | Suggested filename                                |
+| ------------------------------------- | ------------------------------------------------- |
+| Anonymous desktop home                | `docs/screenshots/home-anonymous-desktop.png`     |
+| Authenticated desktop home            | `docs/screenshots/home-authenticated-desktop.png` |
+| Mobile home with collapsed navigation | `docs/screenshots/home-mobile.png`                |
+| Expanded mobile navigation            | `docs/screenshots/mobile-navigation-expanded.png` |
+| Song detail and player                | `docs/screenshots/song-detail-player.png`         |
+| Empty library state                   | `docs/screenshots/empty-library.png`              |
+| Missing cover fallback                | `docs/screenshots/missing-cover-card.png`         |
 
 ## Architecture Overview
 
@@ -116,24 +116,24 @@ The supported settings module is `musicplayer.settings`.
 
 Important environment variables:
 
-| Variable | Purpose |
-| --- | --- |
-| `SECRET_KEY` | Required for signed cookies and security-sensitive Django features. Use a long production secret. |
-| `DEBUG` | Use `True` locally and `False` in production. |
-| `ALLOWED_HOSTS` | Comma-separated hostnames allowed by Django. Required when `DEBUG=False`. |
-| `CSRF_TRUSTED_ORIGINS` | Comma-separated absolute trusted origins such as `https://sonica.example.com`. |
-| `DATABASE_URL` | Blank for local SQLite; set to a PostgreSQL URL in production. |
-| `DATABASE_CONN_MAX_AGE` | Persistent database connection lifetime in seconds. |
-| `DATABASE_SSL_REQUIRE` | Set `True` when the PostgreSQL provider requires SSL. |
-| `PORT` | Platform-provided port for the Procfile start command. |
-| `SECURE_SSL_REDIRECT` | Redirect HTTP to HTTPS when Django is responsible for the redirect. |
-| `SESSION_COOKIE_SECURE` | Send session cookies only over HTTPS. |
-| `CSRF_COOKIE_SECURE` | Send CSRF cookies only over HTTPS. |
-| `SECURE_HSTS_SECONDS` | Enable HSTS only after HTTPS is verified. |
-| `TRUST_X_FORWARDED_PROTO` | Trust proxy HTTPS headers only behind a trusted reverse proxy. |
-| `ENABLE_GOOGLE_AUTH` | Shows Google auth UI only when a real SocialApp is configured. |
-| `SONICA_MAX_AUDIO_UPLOAD_SIZE` | Maximum uploaded audio size in bytes. |
-| `SONICA_MAX_COVER_UPLOAD_SIZE` | Maximum uploaded cover size in bytes. |
+| Variable                       | Purpose                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `SECRET_KEY`                   | Required for signed cookies and security-sensitive Django features. Use a long production secret. |
+| `DEBUG`                        | Use `True` locally and `False` in production.                                                     |
+| `ALLOWED_HOSTS`                | Comma-separated hostnames allowed by Django. Required when `DEBUG=False`.                         |
+| `CSRF_TRUSTED_ORIGINS`         | Comma-separated absolute trusted origins such as `https://sonica.example.com`.                    |
+| `DATABASE_URL`                 | Blank for local SQLite; set to a PostgreSQL URL in production.                                    |
+| `DATABASE_CONN_MAX_AGE`        | Persistent database connection lifetime in seconds.                                               |
+| `DATABASE_SSL_REQUIRE`         | Set `True` when the PostgreSQL provider requires SSL.                                             |
+| `PORT`                         | Platform-provided port for the Procfile start command.                                            |
+| `SECURE_SSL_REDIRECT`          | Redirect HTTP to HTTPS when Django is responsible for the redirect.                               |
+| `SESSION_COOKIE_SECURE`        | Send session cookies only over HTTPS.                                                             |
+| `CSRF_COOKIE_SECURE`           | Send CSRF cookies only over HTTPS.                                                                |
+| `SECURE_HSTS_SECONDS`          | Enable HSTS only after HTTPS is verified.                                                         |
+| `TRUST_X_FORWARDED_PROTO`      | Trust proxy HTTPS headers only behind a trusted reverse proxy.                                    |
+| `ENABLE_GOOGLE_AUTH`           | Shows Google auth UI only when a real SocialApp is configured.                                    |
+| `SONICA_MAX_AUDIO_UPLOAD_SIZE` | Maximum uploaded audio size in bytes.                                                             |
+| `SONICA_MAX_COVER_UPLOAD_SIZE` | Maximum uploaded cover size in bytes.                                                             |
 
 Never commit `.env`, database files, uploaded media, OAuth credentials, or real production database URLs.
 
@@ -152,16 +152,15 @@ The repository does not include a music library. Add demo songs through Django a
 For a repeatable local demo catalog, run:
 
 ```powershell
-.\.venv-django52\Scripts\python.exe manage.py seed_demo_data
+.\.venv-django52\Scripts\python.exe manage.py seed_demo_catalog
 ```
 
-This creates eight fictional Sonica demo songs with Hindi and English metadata. It does not create users, download files, assign media paths, or add copyrighted songs. Running it repeatedly is safe and does not duplicate rows.
+This creates eight fictional Sonica demo songs with Hindi and English metadata. It does not create users, download files, assign media paths, or add copyrighted songs. Running it repeatedly is safe and does not duplicate rows. Run it once after deployment; do not add it to every build or application startup.
 
-To remove only rows created by the demo command:
 
-```powershell
-.\.venv-django52\Scripts\python.exe manage.py seed_demo_data --clear
-```
+
+Media remains unavailable until legal persistent media storage is configured.
+Local commercial media and `db.sqlite3` must never be deployed.
 
 ## Verification
 

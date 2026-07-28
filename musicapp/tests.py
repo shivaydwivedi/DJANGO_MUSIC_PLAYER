@@ -13,6 +13,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
+from musicapp.management.commands.seed_demo_catalog import DEMO_CATALOG_SONGS
 from musicapp.management.commands.seed_demo_data import DEMO_ALBUM, DEMO_SONGS
 from musicapp.management.commands.project_smoke_test import (
     render_report,
@@ -1409,6 +1410,87 @@ class EmptyLibraryPageTests(TestCase):
 
         self.assertFalse(Song.objects.filter(album=DEMO_ALBUM).exists())
         self.assertTrue(Song.objects.filter(id=retained_song.id).exists())
+
+    def test_seed_demo_catalog_first_run_creates_exact_fictional_catalog(self):
+        output = StringIO()
+
+        call_command('seed_demo_catalog', stdout=output)
+
+        self.assertEqual(Song.objects.count(), 8)
+        self.assertEqual(len(DEMO_CATALOG_SONGS), 8)
+        self.assertIn('8 created, 0 updated, 0 skipped', output.getvalue())
+        self.assertIn('Final catalogue totals: 8 songs (4 Hindi, 4 English)', output.getvalue())
+
+    def test_seed_demo_catalog_second_run_is_idempotent(self):
+        first_output = StringIO()
+        second_output = StringIO()
+
+        call_command('seed_demo_catalog', stdout=first_output)
+        before_ids = list(Song.objects.values_list('id', flat=True).order_by('id'))
+        call_command('seed_demo_catalog', stdout=second_output)
+
+        self.assertEqual(Song.objects.count(), 8)
+        self.assertEqual(
+            list(Song.objects.values_list('id', flat=True).order_by('id')),
+            before_ids,
+        )
+        self.assertIn('0 created, 0 updated, 8 skipped', second_output.getvalue())
+
+    def test_seed_demo_catalog_populates_four_hindi_and_four_english_songs(self):
+        call_command('seed_demo_catalog', stdout=StringIO())
+
+        self.assertEqual(Song.objects.filter(language='Hindi').count(), 4)
+        self.assertEqual(Song.objects.filter(language='English').count(), 4)
+        self.assertTrue(Song.objects.filter(name='Chand Ki Raah', singer='Aarav Mehta').exists())
+        self.assertTrue(Song.objects.filter(name='Neon Courtyard', singer='Aria Vale').exists())
+
+    def test_seed_demo_catalog_leaves_audio_and_cover_fields_blank(self):
+        call_command('seed_demo_catalog', stdout=StringIO())
+
+        for song in Song.objects.order_by('name'):
+            self.assertEqual(song.song_img.name, '')
+            self.assertEqual(song.song_file.name, '')
+
+    def test_seed_demo_catalog_updates_existing_seeded_row_without_duplication(self):
+        Song.objects.create(
+            name='Neon Courtyard',
+            album='Outdated Album',
+            language='Hindi',
+            year=2020,
+            singer='Aria Vale',
+        )
+        output = StringIO()
+
+        call_command('seed_demo_catalog', stdout=output)
+
+        song = Song.objects.get(name='Neon Courtyard', singer='Aria Vale')
+        self.assertEqual(song.album, 'Midnight Metro')
+        self.assertEqual(song.language, 'English')
+        self.assertEqual(song.year, 2026)
+        self.assertEqual(Song.objects.count(), 8)
+        self.assertIn('7 created, 1 updated, 0 skipped', output.getvalue())
+
+    def test_seed_demo_catalog_leaves_unrelated_user_created_songs_untouched(self):
+        unrelated_song = Song.objects.create(
+            name='Personal Draft',
+            album='Private Album',
+            language='English',
+            year=2023,
+            singer='Local Artist',
+            song_img=SimpleUploadedFile('personal-cover.jpg', b'cover-bytes', content_type='image/jpeg'),
+            song_file=SimpleUploadedFile('personal-song.mp3', b'audio-bytes', content_type='audio/mpeg'),
+        )
+
+        call_command('seed_demo_catalog', stdout=StringIO())
+        unrelated_song.refresh_from_db()
+
+        self.assertEqual(Song.objects.count(), 9)
+        self.assertEqual(unrelated_song.album, 'Private Album')
+        self.assertEqual(unrelated_song.language, 'English')
+        self.assertEqual(unrelated_song.year, 2023)
+        self.assertEqual(unrelated_song.singer, 'Local Artist')
+        self.assertEqual(unrelated_song.song_img.name, 'personal-cover.jpg')
+        self.assertEqual(unrelated_song.song_file.name, 'personal-song.mp3')
 
 
 class PlaylistSchemaFoundationTests(TestCase):

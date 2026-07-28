@@ -126,10 +126,11 @@ Use credentials stored outside the repository.
 The optional demo-data command creates fictional metadata only:
 
 ```bash
-python manage.py seed_demo_data
+python manage.py seed_demo_catalog
 ```
 
-Run it manually from a Render shell only after migrations have succeeded. It
+Run it once manually from a Render shell only after deployment and migrations
+have succeeded. Do not add it to every build command or application startup. It
 does not download files, attach media paths, create users, or add copyrighted
 songs.
 
@@ -139,7 +140,9 @@ The first deployment intentionally has no persistent media storage. Uploaded
 files written to Render's ephemeral app filesystem are not durable. Use blank
 media fields and Sonica's missing-cover and missing-audio fallbacks.
 
-Do not deploy local commercial audio, cover art, or files from `media/`.
+Media remains unavailable until legal persistent media storage is configured. Do
+not deploy local commercial audio, cover art, files from `media/`, or
+`db.sqlite3`.
 
 ## First Deploy Checklist
 
@@ -153,7 +156,7 @@ Do not deploy local commercial audio, cover art, or files from `media/`.
 - Visit `/health/`.
 - Visit `/ready/`.
 - Create a superuser from a Render shell if admin access is needed.
-- Optionally run `seed_demo_data` from a Render shell.
+- Optionally run `seed_demo_catalog` once from a Render shell.
 - Log in and verify browsing, favourites, playlists, and recent history with
   authorized demo content only.
 
