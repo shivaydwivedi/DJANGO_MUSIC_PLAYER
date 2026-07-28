@@ -4,7 +4,7 @@
 
 The project does not define a custom `LOGGING` setting. Runtime visibility comes
 from Django defaults, local command output, test failures, user-facing messages,
-and the recovery smoke command.
+and the project smoke command.
 
 ## Logging Gaps
 
@@ -20,8 +20,8 @@ and the recovery smoke command.
 ## Existing Useful Signals
 
 - `manage.py check` validates basic Django configuration.
-- Automated tests cover the recovered behavior.
-- `recovery_smoke_test` validates important routes and row-count invariants.
+- Automated tests cover the covered behavior.
+- `project_smoke_test` validates important routes and row-count invariants.
 - User-facing messages are used for profile, favourite, and playlist outcomes.
 
 ## Recommendations

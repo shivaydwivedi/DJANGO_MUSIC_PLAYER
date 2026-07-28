@@ -93,7 +93,7 @@ container ownership, names, song counts, memberships, search, and filters.
 
 ## Smoke-Test Changes
 
-The recovery smoke harness now counts `PlaylistContainer` and `PlaylistSong`
+The project smoke harness now counts `PlaylistContainer` and `PlaylistSong`
 rows during read-only checks. Playlist checks use ID-based routes, and GET
 requests to mutation routes are expected to return 405 for authenticated users.
 

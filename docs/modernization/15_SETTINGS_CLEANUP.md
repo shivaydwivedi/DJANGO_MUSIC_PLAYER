@@ -24,7 +24,7 @@ contained stale runtime-looking settings:
 - placeholder production host values;
 - duplicate active settings that could confuse the supported entry point.
 
-Historical audit documents may still mention `settings1/` as recovered evidence,
+Historical audit documents may still mention `settings1/` as legacy evidence,
 but it is no longer a runtime package.
 
 ## Environment Variable Contract

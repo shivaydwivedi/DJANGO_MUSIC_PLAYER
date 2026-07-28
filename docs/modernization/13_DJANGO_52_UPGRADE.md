@@ -62,7 +62,7 @@ No initial Django 5.2 application failures occurred. Before source edits:
 - `manage.py check`: passed.
 - `makemigrations --check --dry-run`: no changes detected.
 - `manage.py test`: 97 tests passed.
-- `recovery_smoke_test`: 27 checks passed.
+- `project_smoke_test`: 27 checks passed.
 - `python -Wd manage.py check`: no warnings.
 - `python -Wd manage.py test`: no warnings.
 
@@ -206,7 +206,7 @@ zero, seeded twice, tested, smoke-tested, and removed.
 - `python manage.py check`: passed.
 - `python manage.py makemigrations --check --dry-run`: no changes detected.
 - `python manage.py test`: 97 tests passed.
-- `python manage.py recovery_smoke_test`: 27 checks passed, overall PASS.
+- `python manage.py project_smoke_test`: 27 checks passed, overall PASS.
 - `python -Wd manage.py check`: passed with no warnings.
 - `python -Wd manage.py test`: 97 tests passed with no warnings.
 

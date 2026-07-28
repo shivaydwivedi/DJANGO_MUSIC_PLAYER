@@ -82,7 +82,7 @@ Usage findings:
 - `manage.py`, `wsgi.py`, and `asgi.py` default to `musicplayer.settings`, not
   `musicplayer.settings1.*`.
 - No command imports `musicplayer.settings1.*` by default.
-- Existing recovery documentation references `settings1/` as legacy evidence.
+- Existing historical documentation references `settings1/` as legacy evidence.
 - The modules contain no literal secret values, but they read `SECRET_KEY` and
   database credentials from environment variables.
 - `developement.py` is misspelled, enables debug-toolbar, and assumes
@@ -152,9 +152,9 @@ Do not perform these steps in this branch.
 - Keep this branch's tests and smoke harness passing.
 - Choose and document the exact Python, Django, and allauth versions after
   checking current compatibility matrices and release notes.
-- Create a clean virtual environment instead of modifying the recovery venv in
+- Create a clean virtual environment instead of modifying the older local venv in
   place.
-- Preserve the SQLite recovery baseline until database modernization begins.
+- Preserve the SQLite Project baseline until database modernization begins.
 - Do not combine dependency cleanup, settings hardening, playlist redesign, or
   upload validation with the first runtime upgrade.
 
@@ -175,5 +175,5 @@ No migrations, database files, media files, or dependency files are involved.
 - `manage.py check`: passed, no issues.
 - `makemigrations --check --dry-run`: passed, no changes detected.
 - `manage.py test`: passed, 97 tests.
-- `recovery_smoke_test`: passed, 27 checks, overall PASS.
+- `project_smoke_test`: passed, 27 checks, overall PASS.
 - `git diff --check`: clean.

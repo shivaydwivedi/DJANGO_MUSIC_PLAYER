@@ -249,10 +249,11 @@ WHITENOISE_USE_FINDERS = DEBUG
 WHITENOISE_AUTOREFRESH = DEBUG
 WHITENOISE_MANIFEST_STRICT = not DEBUG
 
+PROJECT_MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_ROOT = (
     os.path.join(tempfile.gettempdir(), 'sonica-test-media')
     if RUNNING_TESTS
-    else os.path.join(BASE_DIR, 'media')
+    else PROJECT_MEDIA_ROOT
 )
 MEDIA_URL = '/media/'
 

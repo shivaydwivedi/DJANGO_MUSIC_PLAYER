@@ -1,29 +1,36 @@
 # Sonica Music Player
 
-Sonica is a recovered and redesigned Django music-player application. It keeps the original project idea, browser-based music discovery and playback, while adding a safer backend baseline, automated regression coverage, and a modern dark interface suitable for portfolio presentation.
-
-The current release is the frontend QA pass that follows the `recovery-v1` tag. It is designed for local demonstration with legal, user-supplied media.
-
-## Recovery Story
-
-This project began as an inherited Django codebase that could not be run reliably in a modern local environment. The recovery work rebuilt the runtime around Django 3.0.8 and Python 3.8.10, restored database migrations, removed assumptions about archived media, repaired empty-library and missing-media crashes, and added focused tests around favourites, playlists, recent history, protected pages, and smoke coverage.
-
-The frontend work then introduced a shared red-accent design system, responsive page layouts, reusable song cards, protected-page polish, redesigned authentication screens, and consistent empty and missing-media states.
+Sonica Music Player is a modern Django application for browsing songs, playing music, managing favourites, organizing playlists, and reviewing listening history. It pairs a responsive dark interface with secure authentication, tested POST-only mutation flows, SQLite local development, PostgreSQL deployment support, WhiteNoise static serving, and a Waitress production start path.
 
 ## Features
 
-- Public song browsing across home, all songs, Hindi songs, and English songs.
-- Search and filter controls for catalog pages.
+- Public song browsing across home, all songs, Hindi songs, English songs, and recent pages.
+- Search and filter controls for catalog views.
 - Song detail pages with guarded cover and audio rendering.
+- Browser audio player shell.
+- Username/password signup, login, logout, and profile pages.
+- Optional Google authentication when a real Django Allauth SocialApp is configured.
 - Authenticated favourites.
-- Authenticated playlists scoped to the current user.
-- Authenticated recent-listening history.
-- Fixed browser audio player shell.
+- Authenticated playlist containers and playlist-song membership.
+- Authenticated listening-history recording.
+- POST-only mutation routes for favourites, playlists, and playback history.
 - Empty-library and missing-media fallbacks.
+- Health and readiness probes.
+- PostgreSQL-ready deployment configuration.
 - Responsive dark UI with keyboard-visible focus states.
-- Recovery smoke command covering the main app routes.
-- Local username/password signup and login.
-- Optional Google authentication that stays hidden until configured.
+
+## Technology Stack
+
+- Python 3.12
+- Django 5.2 LTS
+- SQLite for local development
+- PostgreSQL via `DATABASE_URL` for production deployment
+- Django Allauth
+- WhiteNoise for production static files
+- Waitress WSGI server
+- Bootstrap 4
+- Font Awesome 4
+- CSS custom properties for the design-token layer
 
 ## Screenshots
 
@@ -41,14 +48,26 @@ Recommended captures:
 | Empty library state | `docs/screenshots/empty-library.png` |
 | Missing cover fallback | `docs/screenshots/missing-cover-card.png` |
 
-## Stack
+## Architecture Overview
 
-- Python 3.12.3
-- Django 5.2 LTS
-- SQLite for local development
-- Bootstrap 4
-- Font Awesome 4
-- CSS custom properties for the design-token layer
+```text
+Browser
+  -> Django templates and static assets
+  -> Django views and forms
+  -> Auth, song, playlist, favourite, and history models
+  -> SQLite locally or PostgreSQL in production
+```
+
+Operational endpoints:
+
+- `/health/` confirms the application process responds.
+- `/ready/` confirms database connectivity with a non-mutating query.
+
+Production serving:
+
+- Waitress runs `musicplayer.wsgi:application`.
+- WhiteNoise serves collected static files.
+- Uploaded media requires durable platform storage such as a persistent disk or object storage.
 
 ## Local Setup
 
@@ -76,25 +95,6 @@ DATABASE_URL=
 ENABLE_GOOGLE_AUTH=False
 ```
 
-The supported settings module is `musicplayer.settings`. `ALLOWED_HOSTS` and
-`CSRF_TRUSTED_ORIGINS` use comma-separated values; CSRF origins must include
-`http://` or `https://`. Local development uses safe defaults when `DEBUG=True`.
-For production-like runs with `DEBUG=False`, set a real `SECRET_KEY` and
-non-empty `ALLOWED_HOSTS`.
-
-Local development uses SQLite when `DATABASE_URL` is blank. Production
-deployments should set `DATABASE_URL` to a PostgreSQL connection string stored
-in the deployment platform, not in the repository. `DATABASE_SSL_REQUIRE=True`
-can be used when the PostgreSQL provider requires SSL, and
-`DATABASE_CONN_MAX_AGE` controls persistent connection lifetime.
-
-Production HTTPS settings are environment-driven. Enable
-`SESSION_COOKIE_SECURE=True` and `CSRF_COOKIE_SECURE=True` for HTTPS
-deployments, set `SECURE_SSL_REDIRECT=True` when Django should redirect HTTP to
-HTTPS, and keep `SECURE_HSTS_SECONDS=0` until the deployed HTTPS setup is
-verified. Only set `TRUST_X_FORWARDED_PROTO=True` behind a trusted reverse proxy
-that strips and sets `X-Forwarded-Proto` correctly.
-
 Apply migrations and create an admin user:
 
 ```powershell
@@ -110,24 +110,44 @@ Run the development server:
 
 Open `http://127.0.0.1:8000/`.
 
-For production-style WSGI startup after deployment preparation, Sonica uses
-Waitress:
+## Environment Configuration
 
-```powershell
-.\.venv-django52\Scripts\waitress-serve.exe --listen=0.0.0.0:8000 musicplayer.wsgi:application
-```
+The supported settings module is `musicplayer.settings`.
 
-Platform deployments can use the Procfile start command, which honors `PORT`:
+Important environment variables:
 
-```text
-web: waitress-serve --listen=0.0.0.0:${PORT:-8000} musicplayer.wsgi:application
-```
+| Variable | Purpose |
+| --- | --- |
+| `SECRET_KEY` | Required for signed cookies and security-sensitive Django features. Use a long production secret. |
+| `DEBUG` | Use `True` locally and `False` in production. |
+| `ALLOWED_HOSTS` | Comma-separated hostnames allowed by Django. Required when `DEBUG=False`. |
+| `CSRF_TRUSTED_ORIGINS` | Comma-separated absolute trusted origins such as `https://sonica.example.com`. |
+| `DATABASE_URL` | Blank for local SQLite; set to a PostgreSQL URL in production. |
+| `DATABASE_CONN_MAX_AGE` | Persistent database connection lifetime in seconds. |
+| `DATABASE_SSL_REQUIRE` | Set `True` when the PostgreSQL provider requires SSL. |
+| `PORT` | Platform-provided port for the Procfile start command. |
+| `SECURE_SSL_REDIRECT` | Redirect HTTP to HTTPS when Django is responsible for the redirect. |
+| `SESSION_COOKIE_SECURE` | Send session cookies only over HTTPS. |
+| `CSRF_COOKIE_SECURE` | Send CSRF cookies only over HTTPS. |
+| `SECURE_HSTS_SECONDS` | Enable HSTS only after HTTPS is verified. |
+| `TRUST_X_FORWARDED_PROTO` | Trust proxy HTTPS headers only behind a trusted reverse proxy. |
+| `ENABLE_GOOGLE_AUTH` | Shows Google auth UI only when a real SocialApp is configured. |
+| `SONICA_MAX_AUDIO_UPLOAD_SIZE` | Maximum uploaded audio size in bytes. |
+| `SONICA_MAX_COVER_UPLOAD_SIZE` | Maximum uploaded cover size in bytes. |
 
-Keep `runserver` for local development only.
+Never commit `.env`, database files, uploaded media, OAuth credentials, or real production database URLs.
+
+## Database Behavior
+
+When `DATABASE_URL` is blank, Sonica uses local SQLite at `db.sqlite3`. This keeps local setup simple and avoids requiring PostgreSQL for development or tests.
+
+When `DATABASE_URL` is set, Sonica parses it with `dj-database-url`. PostgreSQL URLs select Django's PostgreSQL backend through `psycopg` 3. `DATABASE_SSL_REQUIRE=True` enables provider-required SSL mode, and `DATABASE_CONN_MAX_AGE` controls persistent connection lifetime.
+
+Applying migrations creates or updates schema. It does not transfer local SQLite rows into PostgreSQL. Plan any data migration separately using backups and a disposable rehearsal database.
 
 ## Demo Data And Media
 
-The original music library is not included. Add demo songs through Django admin using original, openly licensed, or otherwise authorized audio and cover art.
+The repository does not include a music library. Add demo songs through Django admin using original, openly licensed, or otherwise authorized audio and cover art.
 
 For a repeatable local demo catalog, run:
 
@@ -143,14 +163,6 @@ To remove only rows created by the demo command:
 .\.venv-django52\Scripts\python.exe manage.py seed_demo_data --clear
 ```
 
-Do not commit `db.sqlite3`, uploaded media, secrets, or copyrighted assets. The application includes fallbacks for recovered rows that have missing cover or audio fields.
-
-## Authentication
-
-Local signup and login are available by default. The fields are `username`, `email`, `password1`, `password2`, `password`, and optional `next` redirects for safe local navigation.
-
-Google authentication remains installed through Django Allauth but is disabled in local configuration by default. To enable it, set `ENABLE_GOOGLE_AUTH=True` and configure a real Google `SocialApp` in Django admin for the current site. Do not use placeholder credentials and do not commit secrets.
-
 ## Verification
 
 Run Django checks:
@@ -160,96 +172,60 @@ Run Django checks:
 .\.venv-django52\Scripts\python.exe manage.py makemigrations --check --dry-run
 ```
 
-Run the automated tests:
+Run tests:
 
 ```powershell
 .\.venv-django52\Scripts\python.exe manage.py test
+.\.venv-django52\Scripts\python.exe manage.py test musicapp
 ```
 
-Run the recovery smoke harness:
+Run the project smoke harness:
 
 ```powershell
-.\.venv-django52\Scripts\python.exe manage.py recovery_smoke_test
+.\.venv-django52\Scripts\python.exe manage.py project_smoke_test
 ```
 
-For production-like configuration checks, run `manage.py check --deploy` with
-temporary environment values and do not record real secrets in repository files.
+The older `recovery_smoke_test` command remains as a temporary compatibility alias for existing local automation.
 
-Static files are ready for `collectstatic` through `STATIC_ROOT=staticfiles` and
-WhiteNoise compressed manifest storage:
+## Deployment Readiness
+
+Collect static files:
 
 ```powershell
 .\.venv-django52\Scripts\python.exe manage.py collectstatic --noinput
 ```
 
-Django does not safely serve uploaded production media by itself; deployment
-media storage needs a durable persistent disk or object storage provider.
-
-Deployment readiness helpers:
+Run deployment checks with safe production environment values:
 
 ```powershell
+.\.venv-django52\Scripts\python.exe manage.py check --deploy
 .\.venv-django52\Scripts\python.exe manage.py deployment_readiness_check
 ```
 
-Operational probes are available at `/health/` and `/ready/`. Health only checks
-that Django is responding; readiness also checks database connectivity.
+Production start command:
 
-PostgreSQL deployment details are documented in
-[docs/modernization/25_POSTGRESQL_DEPLOYMENT.md](docs/modernization/25_POSTGRESQL_DEPLOYMENT.md).
+```text
+web: waitress-serve --listen=0.0.0.0:${PORT:-8000} musicplayer.wsgi:application
+```
 
-Expected recovery baseline:
-
-- 97 automated tests passing.
-- 27 smoke checks passing.
-- Smoke result reports overall `PASS`.
+Deployment details are documented in [docs/modernization/25_POSTGRESQL_DEPLOYMENT.md](docs/modernization/25_POSTGRESQL_DEPLOYMENT.md).
 
 ## Project Structure
 
 ```text
-authentication/          User signup, login, and logout views
-musicapp/                Songs, playback, favourites, playlists, recent history, tests
-templates/               Shared layout and page templates
-static/musicapp/css/     Frontend design system and page styles
-media/                   Local uploaded media, not committed
-recovery_smoke_report.*  Local smoke output, not committed
+authentication/       Signup, login, logout, profile, and auth forms
+musicapp/             Song browsing, playback, favourites, playlists, history, tests
+musicplayer/          Project settings, URLs, WSGI/ASGI, health, readiness
+templates/            Shared layout and page templates
+static/               Source CSS, fonts, JavaScript, and images
+media/                Local uploaded media placeholder; runtime uploads ignored
+docs/                 Engineering and deployment documentation
 ```
 
-## Security And Recovery Improvements
+## Acknowledgements
 
-- Server-side login protection for user-owned pages and mutations.
-- POST-only mutations for favourites and playlists.
-- Current-user ownership isolation for favourites, playlists, and recent history.
-- Safer request validation for missing and invalid IDs.
-- Duplicate handling for favourite and playlist operations.
-- Missing media guards before accessing file URLs.
-- Empty-library page rendering without database side effects.
-- Regression tests for repaired recovery paths.
+See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for project attribution.
 
-## Current Limitations
+## License
 
-- The supported local runtime is Python 3.12.3 with Django 5.2 LTS. Earlier
-  recovery and intermediate upgrade environments are retained only as rollback
-  and audit evidence.
-- The playlist model stores playlist membership rows. A truly empty named playlist cannot exist under that model; when the final song is removed, no row remains and the playlist route returns 404.
-- Uploaded media and the local SQLite database are intentionally excluded from version control.
-- Production deployment hardening is outside this release QA branch.
-
-## Roadmap
-
-- Modernize Django and Python after the recovery baseline is preserved.
-- Introduce a dedicated playlist container model in a future model-redesign phase.
-- Add curated demo fixtures using original or openly licensed media.
-- Add deployment configuration and production storage.
-- Expand visual regression coverage for the redesigned interface.
-
-## License And Attribution
-
-Original work:
-
-Copyright (c) 2020 rajaprerak
-
-Recovery, redesign, and subsequent modifications:
-
-Copyright (c) 2026 Shivay Dwivedi
-
-See `LICENSE` for the full MIT License terms.
+Sonica Music Player is distributed under the MIT License. See [LICENSE](LICENSE) for the full license terms.

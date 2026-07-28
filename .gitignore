@@ -13,7 +13,7 @@ media/*
 .env.*
 !.env.example
 
-# Recovery and private material
+# Private/local material
 private-archive/
 private-permissions/
 

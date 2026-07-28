@@ -101,7 +101,7 @@ Missing media fallbacks remain unchanged.
 
 ## Smoke Changes
 
-`recovery_smoke_test` now checks:
+`project_smoke_test` now checks:
 
 - anonymous GET behavior for add/remove Favourite routes;
 - authenticated GET 405 behavior for add/remove Favourite routes;

@@ -47,7 +47,7 @@ printed or documented.
 | `musicapp/tests.py` legacy schema tests | Schema test | Remove or replace when the legacy model is dropped. |
 | `musicapp/tests.py` runtime-isolation tests using legacy rows | Runtime-isolation test | Remove or replace when the legacy table is dropped. |
 | `musicapp/tests.py` and `authentication/tests.py` legacy row counts | Smoke/no-mutation guard | Remove when the table is dropped. |
-| `musicapp/management/commands/recovery_smoke_test.py` legacy count guard | Smoke/no-mutation guard | Remove when the table is dropped. |
+| `musicapp/management/commands/project_smoke_test.py` legacy count guard | Smoke/no-mutation guard | Remove when the table is dropped. |
 | `templates/musicapp/detail.html` and `templates/musicapp/playlist.html` `playlist_name` inputs | Runtime normalized form field | Keep; this names submitted playlist text, not the legacy table. |
 | `musicapp/views.py` local variable `playlist_name` | Runtime normalized form handling | Keep; this validates normalized `PlaylistContainer.name`. |
 | Modernization docs and historical audits | Documentation | Keep or update as historical context. |
@@ -113,7 +113,7 @@ All criteria must be satisfied before starting the final drop branch:
 - all normalized ownership tests pass;
 - all normalized mutation tests pass;
 - 164 or more automated tests pass;
-- all 37 recovery smoke checks pass;
+- all 37 project smoke checks pass;
 - no production errors are attributable to normalized playlist runtime;
 - there is no need to roll back to legacy runtime;
 - copied-database audit shows every relevant legacy membership is represented
@@ -316,7 +316,7 @@ After the final destructive branch:
 - `python manage.py makemigrations --check --dry-run` reports no changes;
 - `python manage.py migrate --plan` reports no unexpected operations;
 - full tests pass;
-- recovery smoke checks pass;
+- project smoke checks pass;
 - production-like checks pass;
 - no `Playlist` runtime/admin imports remain;
 - normalized rows remain unchanged;

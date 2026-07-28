@@ -125,7 +125,7 @@ Tests now cover:
 
 ## Smoke Changes
 
-The recovery smoke harness no longer permits GET playback mutation. It now:
+The project smoke harness no longer permits GET playback mutation. It now:
 
 - treats authenticated playback GET as read-only;
 - adds anonymous protection for `record_song_play`;

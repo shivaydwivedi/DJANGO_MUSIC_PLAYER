@@ -14,7 +14,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from musicapp.management.commands.seed_demo_data import DEMO_ALBUM, DEMO_SONGS
-from musicapp.management.commands.recovery_smoke_test import (
+from musicapp.management.commands.project_smoke_test import (
     render_report,
     run_smoke_checks,
 )
@@ -51,7 +51,7 @@ class EmptyLibraryPageTests(TestCase):
     def _create_song(self, name='Synthetic Test Song'):
         return Song.objects.create(
             name=name,
-            album='Recovery Album',
+            album='Test Album',
             language='English',
             song_img=SimpleUploadedFile('cover.jpg', b'cover-bytes', content_type='image/jpeg'),
             year=2026,
@@ -62,7 +62,7 @@ class EmptyLibraryPageTests(TestCase):
     def _create_song_with_media_state(self, name, language='English', with_image=False, with_audio=False):
         kwargs = {
             'name': name,
-            'album': 'Recovery Album',
+            'album': 'Test Album',
             'language': language,
             'year': 2026,
             'singer': 'Test Singer',
@@ -189,7 +189,7 @@ class EmptyLibraryPageTests(TestCase):
 
     def test_song_upload_validation_does_not_use_real_project_media_root_in_tests(self):
         self.assertEqual(settings.MEDIA_ROOT, TEST_MEDIA_ROOT)
-        self.assertNotIn('music-player-recovery\\media', settings.MEDIA_ROOT)
+        self.assertNotEqual(settings.MEDIA_ROOT, settings.PROJECT_MEDIA_ROOT)
 
     def test_song_upload_validation_default_size_limits_are_documented_values(self):
         self.assertEqual(DEFAULT_MAX_AUDIO_UPLOAD_SIZE, 20 * 1024 * 1024)
@@ -252,7 +252,7 @@ class EmptyLibraryPageTests(TestCase):
         user = User.objects.create_user(username='blank-media-listener', password='secret-pass')
         song = Song.objects.create(
             name='Blank Media Song',
-            album='Recovery Album',
+            album='Test Album',
             language='English',
             year=2026,
             singer='Test Singer',
@@ -730,7 +730,7 @@ class EmptyLibraryPageTests(TestCase):
         user = User.objects.create_user(username='playlist-listener', password='secret-pass')
         song = Song.objects.create(
             name='Blank Playlist Song',
-            album='Recovery Album',
+            album='Test Album',
             language='English',
             year=2026,
             singer='Test Singer',
@@ -1132,7 +1132,7 @@ class EmptyLibraryPageTests(TestCase):
         user = User.objects.create_user(username='playback-listener', password='secret-pass')
         song = Song.objects.create(
             name='Blank Recent Song',
-            album='Recovery Album',
+            album='Test Album',
             language='English',
             year=2026,
             singer='Test Singer',
@@ -1314,7 +1314,7 @@ class EmptyLibraryPageTests(TestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertIn(reverse('login'), response['Location'])
 
-    def test_recovery_smoke_harness_command_passes_and_reports_totals(self):
+    def test_project_smoke_harness_command_passes_and_reports_totals(self):
         with transaction.atomic():
             results = run_smoke_checks()
             report = render_report(results)
@@ -1327,7 +1327,7 @@ class EmptyLibraryPageTests(TestCase):
         self.assertIn('POST record-play route', report)
         self.assertTrue(all(result['passed'] for result in results))
 
-    def test_recovery_smoke_harness_detects_wrong_expectation(self):
+    def test_project_smoke_harness_detects_wrong_expectation(self):
         with transaction.atomic():
             results = run_smoke_checks(expect_overrides={'public:index': 404})
             transaction.set_rollback(True)
@@ -1336,7 +1336,7 @@ class EmptyLibraryPageTests(TestCase):
         self.assertIn('FAIL', report)
         self.assertTrue(any(not result['passed'] for result in results))
 
-    def test_recovery_smoke_harness_leaves_row_counts_unchanged(self):
+    def test_project_smoke_harness_leaves_row_counts_unchanged(self):
         before = self._counts()
         before['users'] = User.objects.count()
 
@@ -1348,6 +1348,16 @@ class EmptyLibraryPageTests(TestCase):
         after['users'] = User.objects.count()
         self.assertTrue(all(result['passed'] for result in results))
         self.assertEqual(after, before)
+
+    def test_project_smoke_command_and_compatibility_alias_pass(self):
+        project_output = StringIO()
+        alias_output = StringIO()
+
+        call_command('project_smoke_test', stdout=project_output)
+        call_command('recovery_smoke_test', stdout=alias_output)
+
+        self.assertIn('Overall result: PASS', project_output.getvalue())
+        self.assertIn('Overall result: PASS', alias_output.getvalue())
 
     def test_seed_demo_data_creates_fictional_catalog_without_media(self):
         output = StringIO()

@@ -175,3 +175,19 @@ Branch: `modernization/postgresql-deployment`
 - Gate: full tests, smoke harness, warning-mode checks, deployment checks,
   collectstatic, migration planning, and no generated/static/media/secrets in
   Git status.
+
+## Phase 17: Repository Cleanup And Independent Rebrand
+
+Branch: `modernization/repository-cleanup-rebrand`
+
+- Status: in progress on `modernization/repository-cleanup-rebrand`.
+- Remove obsolete tracked root reports and old dependency snapshots.
+- Keep ignored local environments, local databases, local media, and collected
+  static output on disk but outside Git.
+- Present Sonica as a standalone Django music application in the README.
+- Consolidate public attribution in `ACKNOWLEDGEMENTS.md` while preserving the
+  MIT license notice.
+- Rename the smoke command to `project_smoke_test` and retain
+  `recovery_smoke_test` as a temporary compatibility alias.
+- Gate: full tests, app tests, project smoke command, alias smoke command,
+  warning-mode checks, deployment checks, collectstatic, and clean diff checks.
