@@ -8,7 +8,7 @@
 - django-allauth version: 65.11.2.
 - Pillow version: 10.4.0.
 
-This phase used only `.venv-django42`. The old recovery `.venv` and the Django
+This phase used only `.venv-django42`. The old local `.venv` and the Django
 3.2 `.venv-django32` environment were not used for installation or verification.
 
 ## Dependency File
@@ -152,7 +152,7 @@ Deferred areas for later phases:
 - `python manage.py check`: passed.
 - `python manage.py makemigrations --check --dry-run`: no changes detected.
 - `python manage.py test`: 97 tests passed.
-- `python manage.py recovery_smoke_test`: 27 checks passed, overall PASS.
+- `python manage.py project_smoke_test`: 27 checks passed, overall PASS.
 - `python -Wd manage.py check`: passed with no warnings.
 - `python -Wd manage.py test`: 97 tests passed with no warnings.
 

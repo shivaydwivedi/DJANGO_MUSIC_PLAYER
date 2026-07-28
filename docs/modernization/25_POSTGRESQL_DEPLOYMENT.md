@@ -25,7 +25,7 @@ When `DATABASE_URL` is empty or unset:
 
 - Django uses `django.db.backends.sqlite3`.
 - The database file remains `db.sqlite3` in the project root.
-- Existing local development, tests, and recovery smoke checks continue to work
+- Existing local development, tests, and project smoke checks continue to work
   without PostgreSQL.
 
 SQLite is not recommended for real multi-user production. It is retained for

@@ -10,9 +10,9 @@ Canonical installation command:
 .\.venv-django52\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`requirements-django32.txt` and `requirements-django42.txt` remain historical
-modernization evidence for the staged upgrade path. `requirements-django52.txt`
-was removed to avoid two competing final runtime files.
+`requirements.txt` is the only retained runtime dependency file. The older
+Django 3.2 and Django 4.2 snapshots were removed during repository cleanup
+because this document records the staged upgrade history.
 
 ## Supported Runtime
 
@@ -112,10 +112,9 @@ environments.
 ## Historical Requirements Files
 
 - `requirements.txt`: canonical supported runtime file.
-- `requirements-django32.txt`: retained as historical evidence for the Django
-  3.2 intermediate upgrade.
-- `requirements-django42.txt`: retained as historical evidence for the Django
-  4.2 intermediate upgrade.
+- Django 3.2 and Django 4.2 direct-dependency snapshots: removed during
+  repository cleanup because `requirements.txt` is authoritative and the staged
+  upgrade history is documented here.
 - `requirements-django52.txt`: removed because `requirements.txt` now owns the
   final Django 5.2 runtime.
 
@@ -138,7 +137,7 @@ py -3.12 -m venv .venv-clean-install
 - `manage.py check`: passed.
 - `makemigrations --check --dry-run`: no changes detected.
 - `manage.py test`: 97 tests passed.
-- `recovery_smoke_test`: 27 checks passed, overall PASS.
+- `project_smoke_test`: 27 checks passed, overall PASS.
 - Import probe: Django, allauth, Google provider, python-decouple, project URLs,
   and management command discovery passed.
 
@@ -182,7 +181,7 @@ future task.
 
 ## Rollback Instructions
 
-1. Restore the previous `requirements.txt` from Git if the legacy recovery
+1. Restore the previous `requirements.txt` from Git if the earlier local
    dependency set is needed.
 2. Reinstall `django-crispy-forms` and restore `crispy_forms` settings only if a
    future template actually uses crispy rendering.

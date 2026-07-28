@@ -8,18 +8,18 @@ Run these before and after each modernization phase:
 .\.venv\Scripts\python.exe manage.py check
 .\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
 .\.venv\Scripts\python.exe manage.py test
-.\.venv\Scripts\python.exe manage.py recovery_smoke_test
+.\.venv\Scripts\python.exe manage.py project_smoke_test
 git status --short
 git diff --stat
 git diff --name-only
 git diff --check
 ```
 
-## Expected Recovery Baseline
+## Expected Project baseline
 
 - Automated tests: 85.
 - Smoke checks: 27.
-- `recovery_smoke_test`: overall PASS.
+- `project_smoke_test`: overall PASS.
 
 ## Data Safety Queries for Future Migration Phases
 

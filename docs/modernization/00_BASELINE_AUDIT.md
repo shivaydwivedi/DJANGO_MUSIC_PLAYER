@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit documents the recovered Sonica Django project as it exists on branch
+This audit documents the Sonica Django project as it exists on branch
 `modernization/baseline-audit`. It is intentionally read-only for runtime app
 behavior: no models, migrations, routes, views, templates, static assets, or
 settings were changed.
@@ -12,8 +12,8 @@ settings were changed.
 - Python runtime: Python 3.8.10 in `.\.venv`.
 - Django runtime: Django 3.0.8.
 - Active settings module: `musicplayer.settings`.
-- Recovery baseline: the project imports, migrations are current, the automated
-  suite passes, and the recovery smoke harness passes.
+- Project baseline: the project imports, migrations are current, the automated
+  suite passes, and the project smoke harness passes.
 - Local database/media assumptions: `db.sqlite3` and `media/` are local ignored
   runtime artifacts, not portable project data.
 
@@ -32,7 +32,7 @@ behavior and the only current GET mutation family.
 
 ## High-Confidence Strengths
 
-- The recovery now has meaningful regression coverage around empty libraries,
+- The project now has meaningful regression coverage around empty libraries,
   missing media, favourites, playlists, recent history, protected pages, and
   project smoke checks.
 - Song media access is guarded in the modernized templates and shared partials.

@@ -197,7 +197,7 @@ After reapplying latest:
 - `seed_demo_data` created 8 demo songs on first run;
 - second seed run reported 8 unchanged;
 - full tests passed;
-- recovery smoke checks passed.
+- project smoke checks passed.
 
 ## Tests Added
 

@@ -40,7 +40,7 @@ class AuthenticationFlowTests(TestCase):
     def _create_song(self, name='Synthetic Test Song'):
         return Song.objects.create(
             name=name,
-            album='Recovery Album',
+            album='Test Album',
             language='English',
             song_img=SimpleUploadedFile('cover.jpg', b'cover-bytes', content_type='image/jpeg'),
             year=2026,

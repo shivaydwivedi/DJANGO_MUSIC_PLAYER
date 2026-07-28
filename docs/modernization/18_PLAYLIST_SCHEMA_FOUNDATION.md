@@ -33,7 +33,7 @@ Queries that still depend on the legacy schema:
   removal by `playlist_name`;
 - `authentication.views.profile_request()`: distinct name count and legacy row
   count;
-- tests and the recovery smoke harness that assert current behavior.
+- tests and the project smoke harness that assert current behavior.
 
 Templates that still depend on the legacy schema:
 
@@ -126,7 +126,7 @@ Migration risks for the next phase:
 
 - legacy duplicate rows need a deterministic cleanup policy;
 - legacy playlist names may differ only by whitespace or case;
-- empty playlists cannot be recovered from legacy rows because they never
+- empty playlists cannot be reconstructed from legacy rows because they never
   existed in the old schema;
 - data migration must preserve per-user ownership and avoid cross-user leakage.
 

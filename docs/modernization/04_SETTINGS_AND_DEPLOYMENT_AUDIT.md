@@ -33,13 +33,13 @@ audit evidence from before that cleanup.
 
 `musicplayer/settings1/` contains old base/development/production modules.
 These are not the default settings path. They reference debug-toolbar and
-PostgreSQL configuration but are not verified in the current recovery baseline.
+PostgreSQL configuration but are not verified in the current Project baseline.
 The development file is named `developement.py`, which should be treated as a
 legacy artifact until intentionally retained or removed.
 
 ## SQLite Assumptions
 
-The active app uses SQLite by default. SQLite is suitable for the recovery
+The active app uses SQLite by default. SQLite is suitable for the local
 baseline and local demo flow, but production modernization should test:
 
 - PostgreSQL driver installation and settings.
