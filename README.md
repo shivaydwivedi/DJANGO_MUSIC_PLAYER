@@ -67,7 +67,8 @@ Production serving:
 
 - Waitress runs `musicplayer.wsgi:application`.
 - WhiteNoise serves collected static files.
-- Uploaded media requires durable platform storage such as a persistent disk or object storage.
+- Cloudinary stores uploaded media in production when `CLOUDINARY_URL` is set.
+- Local development uses filesystem media storage when `CLOUDINARY_URL` is blank.
 
 ## Local Setup
 
@@ -92,6 +93,7 @@ DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1,[::1]
 CSRF_TRUSTED_ORIGINS=
 DATABASE_URL=
+CLOUDINARY_URL=
 ENABLE_GOOGLE_AUTH=False
 ```
 
@@ -125,6 +127,7 @@ Important environment variables:
 | `DATABASE_URL`                 | Blank for local SQLite; set to a PostgreSQL URL in production.                                    |
 | `DATABASE_CONN_MAX_AGE`        | Persistent database connection lifetime in seconds.                                               |
 | `DATABASE_SSL_REQUIRE`         | Set `True` when the PostgreSQL provider requires SSL.                                             |
+| `CLOUDINARY_URL`               | Blank for local filesystem media; set by Render/Cloudinary for production media uploads.          |
 | `PORT`                         | Platform-provided port for the Procfile start command.                                            |
 | `SECURE_SSL_REDIRECT`          | Redirect HTTP to HTTPS when Django is responsible for the redirect.                               |
 | `SESSION_COOKIE_SECURE`        | Send session cookies only over HTTPS.                                                             |
@@ -145,6 +148,19 @@ When `DATABASE_URL` is set, Sonica parses it with `dj-database-url`. PostgreSQL 
 
 Applying migrations creates or updates schema. It does not transfer local SQLite rows into PostgreSQL. Plan any data migration separately using backups and a disposable rehearsal database.
 
+## Media Storage
+
+When `CLOUDINARY_URL` is blank, Sonica uses local filesystem media storage at
+`MEDIA_ROOT`. This is the development fallback and is not a deployment path for
+private or commercial files.
+
+When `CLOUDINARY_URL` exists, Sonica uses Cloudinary for uploaded song covers
+and audio files. Static assets still use Django staticfiles locally and
+WhiteNoise in production; Cloudinary is only the media storage backend.
+
+Do not deploy local commercial audio, cover art, files from `media/`, or
+`db.sqlite3`.
+
 ## Demo Data And Media
 
 The repository does not include a music library. Add demo songs through Django admin using original, openly licensed, or otherwise authorized audio and cover art.
@@ -159,7 +175,8 @@ This creates eight fictional Sonica demo songs with Hindi and English metadata. 
 
 
 
-Media remains unavailable until legal persistent media storage is configured.
+Media remains unavailable for seeded catalogue rows until legal persistent
+media assets are uploaded through the configured storage.
 Local commercial media and `db.sqlite3` must never be deployed.
 
 ## Verification

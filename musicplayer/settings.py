@@ -89,6 +89,8 @@ def validate_runtime_settings(
 # hardening is deferred, but unsafe production-like combinations fail fast.
 DEBUG = config('DEBUG', default=True, cast=bool)
 SECRET_KEY = config('SECRET_KEY', default=LOCAL_SECRET_KEY)
+CLOUDINARY_URL = config('CLOUDINARY_URL', default='').strip()
+USE_CLOUDINARY_MEDIA = bool(CLOUDINARY_URL) and not RUNNING_TESTS
 ALLOWED_HOSTS = parse_csv(
     config('ALLOWED_HOSTS', default='localhost,127.0.0.1,[::1],testserver')
 )
@@ -154,6 +156,12 @@ INSTALLED_APPS = [
     'authentication.apps.AuthenticationConfig',
     'musicapp.apps.MusicappConfig',
 ]
+if USE_CLOUDINARY_MEDIA:
+    staticfiles_index = INSTALLED_APPS.index('django.contrib.staticfiles')
+    INSTALLED_APPS[staticfiles_index + 1:staticfiles_index + 1] = [
+        'cloudinary_storage',
+        'cloudinary',
+    ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -256,9 +264,14 @@ STATICFILES_STORAGE_BACKEND = (
     if DEBUG
     else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 )
+MEDIA_STORAGE_BACKEND = (
+    'musicapp.storage.SonicaCloudinaryMediaStorage'
+    if USE_CLOUDINARY_MEDIA
+    else 'django.core.files.storage.FileSystemStorage'
+)
 STORAGES = {
     'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        'BACKEND': MEDIA_STORAGE_BACKEND,
     },
     'staticfiles': {
         'BACKEND': STATICFILES_STORAGE_BACKEND,
@@ -275,6 +288,10 @@ MEDIA_ROOT = (
     else PROJECT_MEDIA_ROOT
 )
 MEDIA_URL = '/media/'
+if USE_CLOUDINARY_MEDIA:
+    CLOUDINARY_STORAGE = {
+        'SECURE': True,
+    }
 
 SONICA_MAX_AUDIO_UPLOAD_SIZE = parse_non_negative_int(
     config('SONICA_MAX_AUDIO_UPLOAD_SIZE', default=str(20 * 1024 * 1024)),

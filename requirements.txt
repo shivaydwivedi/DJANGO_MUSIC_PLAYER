@@ -2,7 +2,9 @@
 # Keep this file to direct dependencies only; do not pin transitive packages
 # unless the application imports/configures them directly.
 Django==5.2.16
+cloudinary==1.45.0
 dj-database-url==3.0.1
+django-cloudinary-storage==0.3.0
 django-allauth[socialaccount]==65.18.0
 psycopg[binary]==3.3.2
 python-decouple==3.8

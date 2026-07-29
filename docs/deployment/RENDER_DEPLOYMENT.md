@@ -46,6 +46,7 @@ The Blueprint sets:
 | `DATABASE_URL` | Render Postgres internal connection string |
 | `DATABASE_CONN_MAX_AGE` | `60` |
 | `DATABASE_SSL_REQUIRE` | `False` for Render private-network database traffic |
+| `CLOUDINARY_URL` | Render/Cloudinary-provided media storage URL |
 | `ALLOWED_HOSTS` | `sonica-music-player.onrender.com` |
 | `CSRF_TRUSTED_ORIGINS` | `https://sonica-music-player.onrender.com` |
 | `SECURE_SSL_REDIRECT` | `True` |
@@ -134,21 +135,27 @@ have succeeded. Do not add it to every build command or application startup. It
 does not download files, attach media paths, create users, or add copyrighted
 songs.
 
-## Media Limitation
+## Media Storage
 
-The first deployment intentionally has no persistent media storage. Uploaded
-files written to Render's ephemeral app filesystem are not durable. Use blank
-media fields and Sonica's missing-cover and missing-audio fallbacks.
+Production media storage is enabled through `CLOUDINARY_URL`. When that
+environment variable exists, uploaded `Song.song_img` and `Song.song_file`
+values are stored in Cloudinary. WhiteNoise remains responsible only for
+collected static files.
 
-Media remains unavailable until legal persistent media storage is configured. Do
-not deploy local commercial audio, cover art, files from `media/`, or
-`db.sqlite3`.
+When `CLOUDINARY_URL` is absent, Sonica keeps the local filesystem media
+fallback at `MEDIA_ROOT`. That fallback is for local development only.
+
+Media remains unavailable for seeded catalogue rows until legal persistent
+media assets are uploaded through the configured storage. Do not deploy local
+commercial audio, cover art, files from `media/`, or `db.sqlite3`.
 
 ## First Deploy Checklist
 
 - Confirm `render.yaml` is committed to the deployment branch.
 - Confirm `.python-version` is `3.12.13`.
 - Confirm `.env`, `db.sqlite3`, `media/*`, and `staticfiles/` are not in Git.
+- Confirm `CLOUDINARY_URL` is configured in Render before relying on uploaded
+  media.
 - Apply the Blueprint in Render.
 - Confirm the build installs dependencies, collects static files, and applies
   migrations.

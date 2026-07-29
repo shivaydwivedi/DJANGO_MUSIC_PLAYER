@@ -1,6 +1,10 @@
+import os
+import subprocess
+import sys
 import shutil
 import tempfile
 from io import StringIO
+from pathlib import Path
 
 from django import forms
 from django.conf import settings
@@ -30,6 +34,7 @@ from .validators import (
 
 
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
@@ -93,6 +98,100 @@ class EmptyLibraryPageTests(TestCase):
             song_file=song_file,
         )
 
+    def _settings_probe(self, env_overrides, code):
+        env = os.environ.copy()
+        env.update(env_overrides)
+        env['PYTHONPATH'] = str(PROJECT_ROOT)
+        return subprocess.run(
+            [sys.executable, '-c', code],
+            cwd=PROJECT_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_local_media_storage_uses_filesystem_when_cloudinary_url_is_absent(self):
+        result = self._settings_probe(
+            {'CLOUDINARY_URL': ''},
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.STORAGES["default"]["BACKEND"]); '
+                'print("cloudinary_storage" in settings.INSTALLED_APPS)'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                'django.core.files.storage.FileSystemStorage',
+                'False',
+            ],
+        )
+
+    def test_cloudinary_media_storage_is_selected_when_cloudinary_url_exists(self):
+        result = self._settings_probe(
+            {'CLOUDINARY_URL': 'cloudinary://demo_key:demo_secret@demo_cloud'},
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.STORAGES["default"]["BACKEND"]); '
+                'print("cloudinary_storage" in settings.INSTALLED_APPS); '
+                'print("cloudinary" in settings.INSTALLED_APPS)'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                'musicapp.storage.SonicaCloudinaryMediaStorage',
+                'True',
+                'True',
+            ],
+        )
+
+    def test_whitenoise_static_storage_remains_independent_from_cloudinary_media(self):
+        result = self._settings_probe(
+            {
+                'CLOUDINARY_URL': 'cloudinary://demo_key:demo_secret@demo_cloud',
+                'DEBUG': 'False',
+                'SECRET_KEY': 'production-settings-test-secret-value-with-enough-length-12345',
+                'ALLOWED_HOSTS': 'example.com',
+            },
+            (
+                'import musicplayer.settings as settings; '
+                'print(settings.STORAGES["default"]["BACKEND"]); '
+                'print(settings.STORAGES["staticfiles"]["BACKEND"]); '
+                'print(settings.INSTALLED_APPS.index("django.contrib.staticfiles") '
+                '< settings.INSTALLED_APPS.index("cloudinary_storage"))'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                'musicapp.storage.SonicaCloudinaryMediaStorage',
+                'whitenoise.storage.CompressedManifestStaticFilesStorage',
+                'True',
+            ],
+        )
+
+    def test_cloudinary_media_storage_routes_image_and_audio_resource_types(self):
+        result = self._settings_probe(
+            {'CLOUDINARY_URL': 'cloudinary://demo_key:demo_secret@demo_cloud'},
+            (
+                'from musicapp.storage import SonicaCloudinaryMediaStorage; '
+                'storage = SonicaCloudinaryMediaStorage(); '
+                'print(storage._get_resource_type("cover.jpg")); '
+                'print(storage._get_resource_type("track.mp3"))'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), ['image', 'video'])
+
     def test_song_upload_validation_accepts_supported_audio_extensions(self):
         for extension in sorted(ALLOWED_AUDIO_EXTENSIONS):
             with self.subTest(extension=extension):
@@ -141,6 +240,37 @@ class EmptyLibraryPageTests(TestCase):
                     )
                 )
                 with self.assertRaisesMessage(ValidationError, 'Song cover must use one of these file extensions'):
+                    song.full_clean()
+
+    def test_song_upload_validation_still_accepts_valid_cover_and_audio_together(self):
+        song = self._unsaved_song(
+            song_img=SimpleUploadedFile('cover.webp', b'cover-bytes', content_type='image/webp'),
+            song_file=SimpleUploadedFile('track.m4a', b'audio-bytes', content_type='audio/mp4'),
+        )
+
+        song.full_clean()
+
+    def test_song_upload_validation_still_rejects_invalid_cover_and_audio(self):
+        cases = [
+            (
+                self._unsaved_song(
+                    song_img=SimpleUploadedFile('cover.svg', b'cover-bytes', content_type='image/svg+xml'),
+                    song_file=SimpleUploadedFile('track.mp3', b'audio-bytes', content_type='audio/mpeg'),
+                ),
+                'Song cover must use one of these file extensions',
+            ),
+            (
+                self._unsaved_song(
+                    song_img=SimpleUploadedFile('cover.jpg', b'cover-bytes', content_type='image/jpeg'),
+                    song_file=SimpleUploadedFile('track.exe', b'audio-bytes', content_type='audio/mpeg'),
+                ),
+                'Song audio must use one of these file extensions',
+            ),
+        ]
+
+        for song, expected_error in cases:
+            with self.subTest(expected_error=expected_error):
+                with self.assertRaisesMessage(ValidationError, expected_error):
                     song.full_clean()
 
     @override_settings(SONICA_MAX_AUDIO_UPLOAD_SIZE=4)
