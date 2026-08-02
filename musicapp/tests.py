@@ -134,10 +134,14 @@ class EmptyLibraryPageTests(TestCase):
         result = self._settings_probe(
             {'CLOUDINARY_URL': 'cloudinary://demo_key:demo_secret@demo_cloud'},
             (
+                'import django; django.setup(); '
                 'import musicplayer.settings as settings; '
+                'from musicapp.models import Song; '
                 'print(settings.STORAGES["default"]["BACKEND"]); '
                 'print("cloudinary_storage" in settings.INSTALLED_APPS); '
-                'print("cloudinary" in settings.INSTALLED_APPS)'
+                'print("cloudinary" in settings.INSTALLED_APPS); '
+                'print(type(Song._meta.get_field("song_img").storage).__name__); '
+                'print(type(Song._meta.get_field("song_file").storage).__name__)'
             ),
         )
 
@@ -145,9 +149,11 @@ class EmptyLibraryPageTests(TestCase):
         self.assertEqual(
             result.stdout.splitlines(),
             [
-                'musicapp.storage.SonicaCloudinaryMediaStorage',
+                'musicapp.storage.SonicaCloudinaryImageStorage',
                 'True',
                 'True',
+                'SonicaCloudinaryImageStorage',
+                'SonicaCloudinaryAudioStorage',
             ],
         )
 
@@ -172,25 +178,57 @@ class EmptyLibraryPageTests(TestCase):
         self.assertEqual(
             result.stdout.splitlines(),
             [
-                'musicapp.storage.SonicaCloudinaryMediaStorage',
+                'musicapp.storage.SonicaCloudinaryImageStorage',
                 'whitenoise.storage.CompressedManifestStaticFilesStorage',
                 'True',
             ],
         )
 
-    def test_cloudinary_media_storage_routes_image_and_audio_resource_types(self):
+    def test_cloudinary_media_storage_upload_options_use_expected_resource_types(self):
         result = self._settings_probe(
             {'CLOUDINARY_URL': 'cloudinary://demo_key:demo_secret@demo_cloud'},
             (
-                'from musicapp.storage import SonicaCloudinaryMediaStorage; '
-                'storage = SonicaCloudinaryMediaStorage(); '
-                'print(storage._get_resource_type("cover.jpg")); '
-                'print(storage._get_resource_type("track.mp3"))'
+                'import django; django.setup(); '
+                'from django.core.files.base import ContentFile; '
+                'from unittest.mock import patch; '
+                'from musicapp.storage import SonicaCloudinaryAudioStorage, SonicaCloudinaryImageStorage; '
+                'patcher = patch("cloudinary.uploader.upload", return_value={"public_id": "media/test"}); '
+                'upload = patcher.start(); '
+                'SonicaCloudinaryImageStorage()._save("cover.jpg", ContentFile(b"cover")); '
+                'print(upload.call_args.kwargs["resource_type"]); '
+                'upload.reset_mock(); '
+                'SonicaCloudinaryAudioStorage()._save("track.mp3", ContentFile(b"audio")); '
+                'print(upload.call_args.kwargs["resource_type"]); '
+                'patcher.stop()'
             ),
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines(), ['image', 'video'])
+
+    def test_cloudinary_media_storage_urls_use_expected_resource_types(self):
+        result = self._settings_probe(
+            {'CLOUDINARY_URL': 'cloudinary://demo_key:demo_secret@demo_cloud'},
+            (
+                'import django; django.setup(); '
+                'from musicapp.storage import SonicaCloudinaryAudioStorage, SonicaCloudinaryImageStorage; '
+                'print(SonicaCloudinaryImageStorage().url("media/cover_public_id")); '
+                'print(SonicaCloudinaryAudioStorage().url("media/audio_public_id"))'
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        urls = result.stdout.splitlines()
+        self.assertIn('/image/upload/', urls[0])
+        self.assertIn('/video/upload/', urls[1])
+
+    def test_test_environment_keeps_cloudinary_storage_disabled(self):
+        self.assertFalse(settings.USE_CLOUDINARY_MEDIA)
+        self.assertNotIn('cloudinary_storage', settings.INSTALLED_APPS)
+        self.assertEqual(
+            settings.STORAGES['default']['BACKEND'],
+            'django.core.files.storage.FileSystemStorage',
+        )
 
     def test_song_upload_validation_accepts_supported_audio_extensions(self):
         for extension in sorted(ALLOWED_AUDIO_EXTENSIONS):

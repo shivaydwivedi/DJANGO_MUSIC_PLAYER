@@ -1,17 +1,12 @@
-from pathlib import Path
-
-from cloudinary_storage.storage import MediaCloudinaryStorage
-
-from .validators import ALLOWED_AUDIO_EXTENSIONS, ALLOWED_COVER_EXTENSIONS
+from cloudinary_storage.storage import MediaCloudinaryStorage, VideoMediaCloudinaryStorage
 
 
-class SonicaCloudinaryMediaStorage(MediaCloudinaryStorage):
-    """Route cover and audio uploads to the correct Cloudinary asset type."""
+class SonicaCloudinaryImageStorage(MediaCloudinaryStorage):
+    """Store and deliver Sonica cover images as Cloudinary image resources."""
 
-    def _get_resource_type(self, name):
-        extension = Path(name or '').suffix.lower()
-        if extension in ALLOWED_AUDIO_EXTENSIONS:
-            return 'video'
-        if extension in ALLOWED_COVER_EXTENSIONS:
-            return 'image'
-        return super()._get_resource_type(name)
+
+class SonicaCloudinaryAudioStorage(VideoMediaCloudinaryStorage):
+    """Store and deliver Sonica audio as Cloudinary video resources."""
+
+
+SonicaCloudinaryMediaStorage = SonicaCloudinaryImageStorage

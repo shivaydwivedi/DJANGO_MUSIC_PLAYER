@@ -12,6 +12,7 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_SECRET_KEY = 'sonica-local-development-secret-key'
 RUNNING_TESTS = any(arg == 'test' for arg in sys.argv)
+RUNNING_MIGRATION_COMMAND = any(arg in {'makemigrations', 'migrate'} for arg in sys.argv)
 
 
 def parse_csv(value):
@@ -91,6 +92,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 SECRET_KEY = config('SECRET_KEY', default=LOCAL_SECRET_KEY)
 CLOUDINARY_URL = config('CLOUDINARY_URL', default='').strip()
 USE_CLOUDINARY_MEDIA = bool(CLOUDINARY_URL) and not RUNNING_TESTS
+CONFIGURE_CLOUDINARY_FIELD_STORAGE = USE_CLOUDINARY_MEDIA and not RUNNING_MIGRATION_COMMAND
 ALLOWED_HOSTS = parse_csv(
     config('ALLOWED_HOSTS', default='localhost,127.0.0.1,[::1],testserver')
 )
@@ -265,7 +267,7 @@ STATICFILES_STORAGE_BACKEND = (
     else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 )
 MEDIA_STORAGE_BACKEND = (
-    'musicapp.storage.SonicaCloudinaryMediaStorage'
+    'musicapp.storage.SonicaCloudinaryImageStorage'
     if USE_CLOUDINARY_MEDIA
     else 'django.core.files.storage.FileSystemStorage'
 )
