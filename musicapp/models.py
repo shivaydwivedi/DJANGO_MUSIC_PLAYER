@@ -1,7 +1,22 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 
 from .validators import validate_song_audio_upload, validate_song_cover_upload
+
+
+def _song_image_storage_options():
+    if not getattr(settings, 'CONFIGURE_CLOUDINARY_FIELD_STORAGE', False):
+        return {}
+    from .storage import SonicaCloudinaryImageStorage
+    return {'storage': SonicaCloudinaryImageStorage()}
+
+
+def _song_audio_storage_options():
+    if not getattr(settings, 'CONFIGURE_CLOUDINARY_FIELD_STORAGE', False):
+        return {}
+    from .storage import SonicaCloudinaryAudioStorage
+    return {'storage': SonicaCloudinaryAudioStorage()}
 
 
 # Create your models here.
@@ -15,10 +30,10 @@ class Song(models.Model):
     name = models.CharField(max_length=200)
     album = models.CharField(max_length=200)
     language = models.CharField(max_length=20,choices=Language_Choice,default='Hindi')
-    song_img = models.FileField(blank=True)
+    song_img = models.FileField(blank=True, **_song_image_storage_options())
     year = models.IntegerField()
     singer = models.CharField(max_length=200)
-    song_file = models.FileField(blank=True)
+    song_file = models.FileField(blank=True, **_song_audio_storage_options())
 
     def __str__(self):
         return self.name

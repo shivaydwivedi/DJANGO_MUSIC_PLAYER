@@ -136,19 +136,29 @@ class EmptyLibraryPageTests(TestCase):
             (
                 'import django; django.setup(); '
                 'import musicplayer.settings as settings; '
+                'from django.apps import apps; '
                 'from musicapp.models import Song; '
+                'print(settings.USE_CLOUDINARY_MEDIA); '
+                'print(settings.CONFIGURE_CLOUDINARY_FIELD_STORAGE); '
+                'print(apps.get_app_config("musicapp").__class__.__name__); '
                 'print(settings.STORAGES["default"]["BACKEND"]); '
                 'print("cloudinary_storage" in settings.INSTALLED_APPS); '
                 'print("cloudinary" in settings.INSTALLED_APPS); '
                 'print(type(Song._meta.get_field("song_img").storage).__name__); '
-                'print(type(Song._meta.get_field("song_file").storage).__name__)'
+                'print(type(Song._meta.get_field("song_file").storage).__name__); '
+                'print(Song._meta.get_field("song_img").storage.url("media/cover_public_id")); '
+                'print(Song._meta.get_field("song_file").storage.url("media/audio_public_id"))'
             ),
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
         self.assertEqual(
-            result.stdout.splitlines(),
+            lines[:8],
             [
+                'True',
+                'True',
+                'MusicappConfig',
                 'musicapp.storage.SonicaCloudinaryImageStorage',
                 'True',
                 'True',
@@ -156,6 +166,8 @@ class EmptyLibraryPageTests(TestCase):
                 'SonicaCloudinaryAudioStorage',
             ],
         )
+        self.assertIn('/image/upload/', lines[8])
+        self.assertIn('/video/upload/', lines[9])
 
     def test_whitenoise_static_storage_remains_independent_from_cloudinary_media(self):
         result = self._settings_probe(
