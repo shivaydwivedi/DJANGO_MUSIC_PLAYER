@@ -296,6 +296,67 @@ class EmptyLibraryPageTests(TestCase):
 
         song.full_clean()
 
+    def test_existing_committed_extensionless_cover_allows_metadata_update(self):
+        song = Song.objects.create(
+            name='Cloudinary Cover Song',
+            album='Original Album',
+            language='English',
+            year=2026,
+            singer='Cloudinary Artist',
+            song_img='media/my__aonpi6',
+        )
+
+        song.refresh_from_db()
+        song.album = 'Updated Album'
+
+        song.full_clean()
+
+    def test_existing_committed_extensionless_cover_allows_new_audio_upload(self):
+        song = Song.objects.create(
+            name='Cloudinary Cover Audio Song',
+            album='Original Album',
+            language='English',
+            year=2026,
+            singer='Cloudinary Artist',
+            song_img='media/my__aonpi6',
+        )
+
+        song.refresh_from_db()
+        song.song_file = SimpleUploadedFile('new-audio.mp3', b'audio-bytes', content_type='audio/mpeg')
+
+        song.full_clean()
+
+    def test_existing_committed_extensionless_audio_allows_new_cover_upload(self):
+        song = Song.objects.create(
+            name='Cloudinary Audio Cover Song',
+            album='Original Album',
+            language='English',
+            year=2026,
+            singer='Cloudinary Artist',
+            song_file='media/audio__x9k2q',
+        )
+
+        song.refresh_from_db()
+        song.song_img = SimpleUploadedFile('new-cover.webp', b'cover-bytes', content_type='image/webp')
+
+        song.full_clean()
+
+    def test_existing_committed_local_filesystem_media_remains_valid(self):
+        song = Song.objects.create(
+            name='Local Filesystem Song',
+            album='Original Album',
+            language='English',
+            year=2026,
+            singer='Local Artist',
+            song_img='local-cover.jpg',
+            song_file='local-audio.mp3',
+        )
+
+        song.refresh_from_db()
+        song.year = 2027
+
+        song.full_clean()
+
     def test_song_modelform_applies_upload_validation(self):
         SongForm = forms.modelform_factory(
             Song,

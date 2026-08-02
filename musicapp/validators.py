@@ -2,6 +2,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db.models.fields.files import FieldFile
 
 
 ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.m4a'}
@@ -18,8 +19,14 @@ def _max_size(setting_name, default):
     return getattr(settings, setting_name, default)
 
 
+def _is_committed_field_file(value):
+    return isinstance(value, FieldFile) and value._committed
+
+
 def _validate_upload(value, *, allowed_extensions, max_size, label):
     if not value:
+        return
+    if _is_committed_field_file(value):
         return
 
     extension = _extension(getattr(value, 'name', ''))
