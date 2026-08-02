@@ -179,6 +179,86 @@ Media remains unavailable for seeded catalogue rows until legal persistent
 media assets are uploaded through the configured storage.
 Local commercial media and `db.sqlite3` must never be deployed.
 
+## Authorised Media Import
+
+Use `import_song_catalog` only with media you have explicit permission to
+publish. The command never defaults to `media/`; pass an authorised source
+directory and manifest each time.
+
+Expected source folder:
+
+```text
+authorised-media/
+  covers/
+    twilight-market.jpg
+  audio/
+    twilight-market.mp3
+  catalog.json
+```
+
+Example JSON manifest:
+
+```json
+[
+  {
+    "name": "Twilight Market",
+    "album": "City Lights",
+    "language": "English",
+    "year": 2026,
+    "singer": "River Hale",
+    "audio_filename": "audio/twilight-market.mp3",
+    "cover_filename": "covers/twilight-market.jpg"
+  }
+]
+```
+
+Validate without writing to the database or uploading media:
+
+```powershell
+.\.venv-django52\Scripts\python.exe manage.py import_song_catalog `
+  --source "C:\path\to\authorised-media" `
+  --manifest "C:\path\to\authorised-media\catalog.json" `
+  --dry-run
+```
+
+Run the real import only after confirming publishing rights:
+
+```powershell
+.\.venv-django52\Scripts\python.exe manage.py import_song_catalog `
+  --source "C:\path\to\authorised-media" `
+  --manifest "C:\path\to\authorised-media\catalog.json" `
+  --confirm-rights
+```
+
+To run against production PostgreSQL from PowerShell, set a temporary database
+URL only for that command and keep the real value out of files:
+
+```powershell
+$env:DATABASE_URL = "postgresql://user:password@host:5432/database"
+$env:CLOUDINARY_URL = "cloudinary://api-key:api-secret@cloud-name"
+.\.venv-django52\Scripts\python.exe manage.py import_song_catalog `
+  --source "C:\path\to\authorised-media" `
+  --manifest "C:\path\to\authorised-media\catalog.json" `
+  --confirm-rights
+Remove-Item Env:\DATABASE_URL
+Remove-Item Env:\CLOUDINARY_URL
+```
+
+After import, verify the cover and audio assets in Cloudinary. Covers should be
+image resources and audio should be video resources. Sonica should render cover
+URLs with `/image/upload/` and audio URLs with `/video/upload/`.
+
+To remove only exact fictional records created by `seed_demo_catalog`:
+
+```powershell
+.\.venv-django52\Scripts\python.exe manage.py import_song_catalog `
+  --remove-demo-catalog `
+  --confirm-demo-removal
+```
+
+Demo rows with favourites, playlists, or recent-history relationships are
+skipped instead of cascading into user data.
+
 ## Verification
 
 Run Django checks:

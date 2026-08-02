@@ -149,6 +149,97 @@ Media remains unavailable for seeded catalogue rows until legal persistent
 media assets are uploaded through the configured storage. Do not deploy local
 commercial audio, cover art, files from `media/`, or `db.sqlite3`.
 
+## Authorised Media Import
+
+Use `import_song_catalog` to publish only media that the operator has confirmed
+is authorised for public use. The command requires an explicit source directory
+and manifest; it never defaults to the repository `media/` folder.
+
+Expected source folder:
+
+```text
+authorised-media/
+  covers/
+    twilight-market.jpg
+  audio/
+    twilight-market.mp3
+  catalog.json
+```
+
+Manifest rows may be JSON or CSV and must include:
+
+- `name`
+- `album`
+- `language`
+- `year`
+- `singer`
+- `audio_filename`
+- `cover_filename`
+
+Example `catalog.json`:
+
+```json
+[
+  {
+    "name": "Twilight Market",
+    "album": "City Lights",
+    "language": "English",
+    "year": 2026,
+    "singer": "River Hale",
+    "audio_filename": "audio/twilight-market.mp3",
+    "cover_filename": "covers/twilight-market.jpg"
+  }
+]
+```
+
+Dry-run locally or from a shell before importing:
+
+```bash
+python manage.py import_song_catalog \
+  --source "/path/to/authorised-media" \
+  --manifest "/path/to/authorised-media/catalog.json" \
+  --dry-run
+```
+
+Real imports require the rights acknowledgement:
+
+```bash
+python manage.py import_song_catalog \
+  --source "/path/to/authorised-media" \
+  --manifest "/path/to/authorised-media/catalog.json" \
+  --confirm-rights
+```
+
+For a one-off production PostgreSQL run from PowerShell, set the production
+database and Cloudinary URLs only in the current terminal session:
+
+```powershell
+$env:DATABASE_URL = "postgresql://user:password@host:5432/database"
+$env:CLOUDINARY_URL = "cloudinary://api-key:api-secret@cloud-name"
+.\.venv-django52\Scripts\python.exe manage.py import_song_catalog `
+  --source "C:\path\to\authorised-media" `
+  --manifest "C:\path\to\authorised-media\catalog.json" `
+  --confirm-rights
+Remove-Item Env:\DATABASE_URL
+Remove-Item Env:\CLOUDINARY_URL
+```
+
+After import, verify the assets in Cloudinary. Covers should be image resources
+and audio should be video resources. In Sonica pages, cover URLs should contain
+`/image/upload/`; audio URLs should contain `/video/upload/`.
+
+Do not automatically delete demo data during import. Remove only exact
+`seed_demo_catalog` records with:
+
+```bash
+python manage.py import_song_catalog \
+  --remove-demo-catalog \
+  --confirm-demo-removal
+```
+
+Rows with favourites, playlists, or recent-history relationships are skipped
+instead of cascading into user data.
+
 ## First Deploy Checklist
 
 - Confirm `render.yaml` is committed to the deployment branch.

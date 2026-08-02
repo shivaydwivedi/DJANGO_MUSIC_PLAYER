@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import json
 import shutil
 import tempfile
 from io import StringIO
@@ -10,8 +11,10 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.files.storage import Storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -97,6 +100,32 @@ class EmptyLibraryPageTests(TestCase):
             song_img=song_img,
             song_file=song_file,
         )
+
+    def _catalog_source(self, rows=None, audio_name='song.mp3', cover_name='cover.jpg'):
+        source_dir = Path(tempfile.mkdtemp())
+        manifest_path = source_dir / 'catalog.json'
+        (source_dir / audio_name).write_bytes(b'audio-bytes')
+        (source_dir / cover_name).write_bytes(b'cover-bytes')
+        if rows is None:
+            rows = [
+                {
+                    'name': 'Authorised Test Song',
+                    'album': 'Authorised Test Album',
+                    'language': 'English',
+                    'year': 2026,
+                    'singer': 'Authorised Artist',
+                    'audio_filename': audio_name,
+                    'cover_filename': cover_name,
+                },
+            ]
+        manifest_path.write_text(json.dumps(rows), encoding='utf-8')
+        return source_dir, manifest_path
+
+    def _run_import(self, *args, **kwargs):
+        output = kwargs.pop('stdout', StringIO())
+        error = kwargs.pop('stderr', StringIO())
+        call_command('import_song_catalog', *args, stdout=output, stderr=error, **kwargs)
+        return output.getvalue(), error.getvalue()
 
     def _settings_probe(self, env_overrides, code):
         env = os.environ.copy()
@@ -428,6 +457,281 @@ class EmptyLibraryPageTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn('Song audio must use one of these file extensions', str(form.errors))
+
+    def test_import_song_catalog_requires_source_for_import(self):
+        with self.assertRaisesMessage(CommandError, '--source and --manifest are required for import'):
+            call_command('import_song_catalog')
+
+    def test_import_song_catalog_requires_manifest_for_import(self):
+        source_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        with self.assertRaisesMessage(CommandError, '--manifest is required for import'):
+            call_command('import_song_catalog', '--source', str(source_dir))
+
+    def test_import_song_catalog_rejects_invalid_manifest(self):
+        source_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+        manifest_path = source_dir / 'catalog.json'
+        manifest_path.write_text('{invalid', encoding='utf-8')
+
+        with self.assertRaisesMessage(CommandError, 'Manifest JSON is invalid'):
+            call_command('import_song_catalog', '--source', str(source_dir), '--manifest', str(manifest_path), '--dry-run')
+
+    def test_import_song_catalog_rejects_missing_files(self):
+        source_dir, manifest_path = self._catalog_source(rows=[
+            {
+                'name': 'Missing File Song',
+                'album': 'Authorised Test Album',
+                'language': 'English',
+                'year': 2026,
+                'singer': 'Authorised Artist',
+                'audio_filename': 'missing.mp3',
+                'cover_filename': 'cover.jpg',
+            },
+        ])
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        with self.assertRaisesMessage(CommandError, 'audio file not found'):
+            call_command('import_song_catalog', '--source', str(source_dir), '--manifest', str(manifest_path), '--dry-run')
+
+    def test_import_song_catalog_rejects_unsupported_extension(self):
+        source_dir, manifest_path = self._catalog_source(audio_name='song.exe')
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        with self.assertRaisesMessage(CommandError, 'Song audio must use one of these file extensions'):
+            call_command('import_song_catalog', '--source', str(source_dir), '--manifest', str(manifest_path), '--dry-run')
+
+    def test_import_song_catalog_dry_run_performs_no_writes(self):
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        output, _ = self._run_import('--source', str(source_dir), '--manifest', str(manifest_path), '--dry-run')
+
+        self.assertEqual(Song.objects.count(), 0)
+        self.assertIn('WOULD CREATE: Authorised Test Song - Authorised Artist', output)
+        self.assertIn('Dry run complete: 1 create, 0 update, 0 skip, 0 failed.', output)
+
+    def test_import_song_catalog_requires_rights_confirmation_for_real_import(self):
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        with self.assertRaisesMessage(CommandError, 'Real imports require --confirm-rights'):
+            call_command('import_song_catalog', '--source', str(source_dir), '--manifest', str(manifest_path))
+
+    def test_import_song_catalog_valid_import_creates_song(self):
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        output, _ = self._run_import(
+            '--source',
+            str(source_dir),
+            '--manifest',
+            str(manifest_path),
+            '--confirm-rights',
+        )
+
+        song = Song.objects.get(name='Authorised Test Song', singer='Authorised Artist')
+        self.assertEqual(song.album, 'Authorised Test Album')
+        self.assertEqual(song.language, 'English')
+        self.assertEqual(song.year, 2026)
+        self.assertTrue(song.song_img.name.endswith('.jpg'))
+        self.assertTrue(song.song_file.name.endswith('.mp3'))
+        self.assertIn('CREATED: Authorised Test Song - Authorised Artist', output)
+
+    def test_import_song_catalog_saves_cover_and_audio_using_field_storages(self):
+        class RecordingStorage(Storage):
+            def __init__(self):
+                self.saved = []
+
+            def _save(self, name, content):
+                self.saved.append(name)
+                return name
+
+            def exists(self, name):
+                return False
+
+            def url(self, name):
+                return '/recorded/{0}'.format(name)
+
+        image_storage = RecordingStorage()
+        audio_storage = RecordingStorage()
+        image_field = Song._meta.get_field('song_img')
+        audio_field = Song._meta.get_field('song_file')
+        original_image_storage = image_field.storage
+        original_audio_storage = audio_field.storage
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        try:
+            image_field.storage = image_storage
+            audio_field.storage = audio_storage
+            self._run_import('--source', str(source_dir), '--manifest', str(manifest_path), '--confirm-rights')
+        finally:
+            image_field.storage = original_image_storage
+            audio_field.storage = original_audio_storage
+
+        self.assertEqual(image_storage.saved, ['cover.jpg'])
+        self.assertEqual(audio_storage.saved, ['song.mp3'])
+
+    def test_import_song_catalog_second_run_is_idempotent(self):
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        self._run_import('--source', str(source_dir), '--manifest', str(manifest_path), '--confirm-rights')
+        before_ids = list(Song.objects.values_list('id', flat=True))
+        output, _ = self._run_import('--source', str(source_dir), '--manifest', str(manifest_path), '--confirm-rights')
+
+        self.assertEqual(Song.objects.count(), 1)
+        self.assertEqual(list(Song.objects.values_list('id', flat=True)), before_ids)
+        self.assertIn('Import summary: 0 created, 0 updated, 1 skipped, 0 failed.', output)
+
+    def test_import_song_catalog_updates_existing_song_without_duplicate(self):
+        source_dir, manifest_path = self._catalog_source(rows=[
+            {
+                'name': 'Authorised Test Song',
+                'album': 'Updated Album',
+                'language': 'Hindi',
+                'year': 2027,
+                'singer': 'Authorised Artist',
+                'audio_filename': 'song.mp3',
+                'cover_filename': 'cover.jpg',
+            },
+        ])
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+        Song.objects.create(
+            name='Authorised Test Song',
+            album='Old Album',
+            language='English',
+            year=2020,
+            singer='Authorised Artist',
+        )
+
+        output, _ = self._run_import('--source', str(source_dir), '--manifest', str(manifest_path), '--confirm-rights')
+
+        song = Song.objects.get(name='Authorised Test Song', singer='Authorised Artist')
+        self.assertEqual(Song.objects.count(), 1)
+        self.assertEqual(song.album, 'Updated Album')
+        self.assertEqual(song.language, 'Hindi')
+        self.assertEqual(song.year, 2027)
+        self.assertIn('UPDATED: Authorised Test Song - Authorised Artist', output)
+
+    def test_import_song_catalog_reports_conflicting_records(self):
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+        Song.objects.create(
+            name='Authorised Test Song',
+            album='Other Album',
+            language='English',
+            year=2026,
+            singer='Different Artist',
+        )
+
+        with self.assertRaisesMessage(CommandError, 'Conflicting record'):
+            call_command('import_song_catalog', '--source', str(source_dir), '--manifest', str(manifest_path), '--dry-run')
+
+    def test_import_song_catalog_reports_duplicate_manifest_song_names(self):
+        source_dir, manifest_path = self._catalog_source(rows=[
+            {
+                'name': 'Duplicate Song',
+                'album': 'Album One',
+                'language': 'English',
+                'year': 2026,
+                'singer': 'Artist One',
+                'audio_filename': 'song.mp3',
+                'cover_filename': 'cover.jpg',
+            },
+            {
+                'name': 'Duplicate Song',
+                'album': 'Album Two',
+                'language': 'Hindi',
+                'year': 2026,
+                'singer': 'Artist Two',
+                'audio_filename': 'song.mp3',
+                'cover_filename': 'cover.jpg',
+            },
+        ])
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        with self.assertRaisesMessage(CommandError, 'duplicate song name'):
+            call_command('import_song_catalog', '--source', str(source_dir), '--manifest', str(manifest_path), '--dry-run')
+
+    def test_import_song_catalog_demo_removal_requires_confirmation(self):
+        call_command('seed_demo_catalog', stdout=StringIO())
+
+        with self.assertRaisesMessage(CommandError, '--confirm-demo-removal is required'):
+            call_command('import_song_catalog', '--remove-demo-catalog')
+
+    def test_import_song_catalog_removes_only_exact_seeded_demo_records(self):
+        call_command('seed_demo_catalog', stdout=StringIO())
+        unrelated_song = Song.objects.create(
+            name='Neon Courtyard',
+            album='Custom Album',
+            language='English',
+            year=2026,
+            singer='Aria Vale',
+        )
+
+        output, _ = self._run_import('--remove-demo-catalog', '--confirm-demo-removal')
+
+        self.assertFalse(Song.objects.filter(album='Midnight Metro', name='Neon Courtyard').exists())
+        self.assertTrue(Song.objects.filter(id=unrelated_song.id).exists())
+        self.assertEqual(Song.objects.count(), 1)
+        self.assertIn('Demo removal summary: 8 removed, 0 skipped with relationships.', output)
+
+    def test_import_song_catalog_demo_removal_skips_related_records(self):
+        user = User.objects.create_user(username='demo-listener', password='secret-pass')
+        call_command('seed_demo_catalog', stdout=StringIO())
+        related_song = Song.objects.get(name='Neon Courtyard', singer='Aria Vale')
+        Favourite.objects.create(user=user, song=related_song, is_fav=True)
+
+        output, _ = self._run_import('--remove-demo-catalog', '--confirm-demo-removal')
+
+        self.assertTrue(Song.objects.filter(id=related_song.id).exists())
+        self.assertEqual(Song.objects.count(), 1)
+        self.assertIn('7 removed, 1 skipped with relationships', output)
+
+    def test_import_song_catalog_failure_summary_reports_storage_error(self):
+        class FailingStorage(Storage):
+            def _save(self, name, content):
+                raise OSError('storage unavailable')
+
+            def exists(self, name):
+                return False
+
+        image_field = Song._meta.get_field('song_img')
+        audio_field = Song._meta.get_field('song_file')
+        original_image_storage = image_field.storage
+        original_audio_storage = audio_field.storage
+        source_dir, manifest_path = self._catalog_source()
+        self.addCleanup(shutil.rmtree, source_dir, ignore_errors=True)
+
+        try:
+            image_field.storage = FailingStorage()
+            audio_field.storage = FailingStorage()
+            output, error = self._run_import(
+                '--source',
+                str(source_dir),
+                '--manifest',
+                str(manifest_path),
+                '--confirm-rights',
+            )
+        finally:
+            image_field.storage = original_image_storage
+            audio_field.storage = original_audio_storage
+
+        self.assertEqual(Song.objects.count(), 0)
+        self.assertIn('Import summary: 0 created, 0 updated, 0 skipped, 1 failed.', output)
+        self.assertIn('FAILED: Authorised Test Song - Authorised Artist', error)
+
+    def test_import_song_catalog_tests_use_filesystem_storage_without_cloudinary(self):
+        self.assertNotIn('cloudinary_storage', settings.INSTALLED_APPS)
+        self.assertEqual(
+            settings.STORAGES['default']['BACKEND'],
+            'django.core.files.storage.FileSystemStorage',
+        )
+        self.assertNotEqual(type(Song._meta.get_field('song_img').storage).__name__, 'SonicaCloudinaryImageStorage')
+        self.assertNotEqual(type(Song._meta.get_field('song_file').storage).__name__, 'SonicaCloudinaryAudioStorage')
 
     def test_song_upload_validation_does_not_use_real_project_media_root_in_tests(self):
         self.assertEqual(settings.MEDIA_ROOT, TEST_MEDIA_ROOT)
